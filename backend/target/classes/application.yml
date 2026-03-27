@@ -1,0 +1,39 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: campusflow-backend
+  datasource:
+    driver-class-name: org.h2.Driver
+    url: jdbc:h2:mem:campusflow;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE
+    username: sa
+    password:
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema-h2.sql
+  jackson:
+    time-zone: Asia/Shanghai
+    default-property-inclusion: non_null
+  mvc:
+    format:
+      date-time: yyyy-MM-dd HH:mm:ss
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+
+campusflow:
+  jwt:
+    secret: Y2FtcHVzZmxvdy1kZW1vLXNlY3JldC1mb3ItamF2YS1iYWNrZW5kLTIwMjY=
+    expire-seconds: 86400
