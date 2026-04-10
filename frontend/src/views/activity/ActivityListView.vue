@@ -122,11 +122,20 @@
       </div>
 
       <div class="activity-grid">
-        <ActivityCard
-          v-for="activity in activityStore.pageResult.records"
+        <div
+          v-for="(activity, index) in activityStore.pageResult.records"
           :key="activity.id"
-          :activity="activity"
-        />
+          class="activity-stack-item"
+          :style="{
+            zIndex: String(index + 1),
+            '--stack-top': `${96 + index * 28}px`
+          }"
+        >
+          <ActivityCard
+            :activity="activity"
+            :index="index"
+          />
+        </div>
       </div>
 
       <el-empty v-if="!activityStore.pageResult.records.length" description="暂无符合条件的活动" />
@@ -463,6 +472,7 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   gap: 18px;
+  overflow: visible;
 }
 
 .board-head {
@@ -479,9 +489,17 @@ onMounted(async () => {
 }
 
 .activity-grid {
-  display: grid;
-  gap: 20px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: flex;
+  flex-direction: column;
+  gap: 34px;
+  padding-top: 10px;
+  padding-bottom: 28vh;
+}
+
+.activity-stack-item {
+  position: relative;
+  position: sticky;
+  top: var(--stack-top);
 }
 
 .pagination-row {
@@ -507,9 +525,12 @@ onMounted(async () => {
   }
 
   .workflow-grid,
-  .overview-grid,
-  .activity-grid {
+  .overview-grid {
     grid-template-columns: 1fr;
+  }
+
+  .activity-grid {
+    gap: 28px;
   }
 }
 
@@ -523,6 +544,10 @@ onMounted(async () => {
 
   .board-head {
     gap: 10px;
+  }
+
+  .activity-stack-item {
+    top: var(--stack-top);
   }
 }
 
@@ -547,6 +572,16 @@ onMounted(async () => {
 
   .workflow-grid {
     grid-template-columns: 1fr;
+  }
+
+  .activity-grid {
+    padding-bottom: 0;
+    gap: 20px;
+  }
+
+  .activity-stack-item {
+    position: relative;
+    top: auto;
   }
 }
 </style>

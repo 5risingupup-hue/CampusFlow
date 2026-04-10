@@ -1,5 +1,5 @@
 <template>
-  <article class="activity-card glass-card">
+  <article class="activity-card glass-card" :class="{ 'is-reversed': index % 2 === 1 }">
     <div class="cover" :style="{ backgroundImage: `url(${activity.coverUrl || fallbackCover})` }">
       <div class="cover-overlay" />
       <div class="cover-top">
@@ -64,9 +64,12 @@ import { useRouter } from 'vue-router'
 import type { ActivityCard } from '../types'
 import { formatShortDate, statusLabelMap, statusTagTypeMap } from '../utils/format'
 
-defineProps<{
+withDefaults(defineProps<{
   activity: ActivityCard
-}>()
+  index?: number
+}>(), {
+  index: 0
+})
 
 const router = useRouter()
 const fallbackCover =
@@ -75,22 +78,54 @@ const fallbackCover =
 
 <style scoped>
 .activity-card {
+  position: relative;
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  min-height: 100%;
-  transition: transform 0.24s ease, box-shadow 0.24s ease;
+  display: grid;
+  grid-template-columns: minmax(420px, 1.18fr) minmax(0, 0.82fr);
+  min-height: 472px;
+  border-radius: 40px;
+  background:
+    radial-gradient(circle at 0% 0%, color-mix(in srgb, var(--cf-primary) 10%, transparent), transparent 34%),
+    radial-gradient(circle at 100% 100%, color-mix(in srgb, var(--cf-accent) 11%, transparent), transparent 30%),
+    linear-gradient(180deg, var(--cf-card-start), var(--cf-card-end));
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.activity-card::before {
+  content: '';
+  position: absolute;
+  inset: auto 26px 18px;
+  height: 34px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cf-primary) 12%, transparent);
+  filter: blur(20px);
+  opacity: 0.55;
+  pointer-events: none;
 }
 
 .activity-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--cf-shadow-lg);
+  transform: translateY(-8px);
+  box-shadow: 0 34px 96px color-mix(in srgb, var(--cf-primary) 14%, rgba(16, 29, 52, 0.22));
+}
+
+.activity-card.is-reversed .cover {
+  order: 2;
+  margin: 16px 16px 16px 0;
+}
+
+.activity-card.is-reversed .body {
+  order: 1;
 }
 
 .cover {
   position: relative;
-  min-height: 232px;
-  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 100%;
+  margin: 16px 0 16px 16px;
+  padding: 28px;
+  border-radius: 34px;
   background-size: cover;
   background-position: center;
   color: white;
@@ -118,13 +153,16 @@ const fallbackCover =
 }
 
 .cover-bottom {
-  margin-top: 114px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  justify-content: flex-end;
 }
 
 .type-pill {
   display: inline-flex;
   align-items: center;
-  padding: 8px 12px;
+  padding: 10px 14px;
   border-radius: 999px;
   background: var(--cf-hero-soft-overlay);
   backdrop-filter: blur(10px);
@@ -142,9 +180,10 @@ const fallbackCover =
 }
 
 h3 {
-  margin: 10px 0 0;
-  font-size: 28px;
-  line-height: 1.08;
+  margin: 0;
+  max-width: 10ch;
+  font-size: clamp(32px, 3vw, 48px);
+  line-height: 1;
   letter-spacing: -0.04em;
 }
 
@@ -152,19 +191,23 @@ h3 {
   display: flex;
   flex: 1;
   flex-direction: column;
-  padding: 22px;
+  padding: 30px 30px 28px;
+  position: relative;
+  z-index: 1;
 }
 
 .meta-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 14px;
 }
 
 .meta-item {
-  padding: 15px 16px;
-  border-radius: 18px;
-  background: var(--cf-surface-soft);
+  padding: 18px 18px 16px;
+  border-radius: 22px;
+  border: 1px solid color-mix(in srgb, var(--cf-line) 82%, transparent);
+  background: color-mix(in srgb, var(--cf-surface-soft) 78%, transparent);
+  backdrop-filter: blur(10px);
 }
 
 .meta-label {
@@ -175,19 +218,19 @@ h3 {
 }
 
 .meta-item strong {
-  font-size: 14px;
-  line-height: 1.55;
+  font-size: 15px;
+  line-height: 1.6;
 }
 
 .tag-row {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  margin-top: 18px;
+  margin-top: 22px;
 }
 
 .mini-tag {
-  padding: 7px 11px;
+  padding: 8px 12px;
   border-radius: 999px;
   background: var(--cf-primary-soft);
   color: var(--cf-primary-deep);
@@ -198,17 +241,18 @@ h3 {
 .card-footer {
   display: flex;
   justify-content: space-between;
-  gap: 16px;
+  gap: 18px;
   align-items: flex-end;
   margin-top: auto;
-  padding-top: 22px;
+  padding-top: 28px;
 }
 
 .footer-copy {
   margin: 0;
   color: var(--cf-ink-soft);
-  font-size: 13px;
-  line-height: 1.7;
+  max-width: 28ch;
+  font-size: 14px;
+  line-height: 1.8;
 }
 
 .footer-actions {
@@ -219,12 +263,24 @@ h3 {
 }
 
 @media (max-width: 760px) {
-  .cover {
-    min-height: 214px;
+  .activity-card,
+  .activity-card.is-reversed {
+    grid-template-columns: 1fr;
+    min-height: auto;
   }
 
-  .cover-bottom {
-    margin-top: 86px;
+  .cover {
+    min-height: 228px;
+    margin: 14px 14px 0;
+  }
+
+  .activity-card.is-reversed .cover {
+    order: 1;
+    margin: 14px 14px 0;
+  }
+
+  .activity-card.is-reversed .body {
+    order: 2;
   }
 
   .meta-grid,
@@ -232,6 +288,15 @@ h3 {
     grid-template-columns: 1fr;
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .body {
+    padding: 24px 20px 22px;
+  }
+
+  h3 {
+    max-width: none;
+    font-size: 34px;
   }
 
   .footer-actions {
