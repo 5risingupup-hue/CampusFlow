@@ -2,18 +2,19 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { api } from '../api'
 import type { UserProfile } from '../types'
+import { clearAuthProfile, clearAuthToken, getAuthProfile, getAuthToken, setAuthProfile, setAuthToken } from '../utils/auth'
 
 export const useUserStore = defineStore('user', () => {
-  const token = ref(localStorage.getItem('campusflow_token') || '')
-  const profile = ref<UserProfile | null>(null)
+  const token = ref(setAuthToken(getAuthToken()))
+  const profile = ref<UserProfile | null>(getAuthProfile() as UserProfile | null)
 
   const isLoggedIn = computed(() => Boolean(token.value))
   const role = computed(() => profile.value?.role || '')
 
   const setSession = (nextToken: string, nextProfile: UserProfile) => {
-    token.value = nextToken
+    token.value = setAuthToken(nextToken)
     profile.value = nextProfile
-    localStorage.setItem('campusflow_token', nextToken)
+    setAuthProfile(nextProfile)
   }
 
   const login = async (payload: { username: string; password: string }) => {
@@ -25,12 +26,14 @@ export const useUserStore = defineStore('user', () => {
     if (!token.value) return
     const response = await api.getProfile()
     profile.value = response.data
+    setAuthProfile(response.data)
   }
 
   const logout = () => {
     token.value = ''
     profile.value = null
-    localStorage.removeItem('campusflow_token')
+    clearAuthToken()
+    clearAuthProfile()
   }
 
   return {

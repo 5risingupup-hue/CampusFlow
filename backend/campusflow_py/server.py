@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import base64
+import hashlib
+import hmac
 import json
 import os
 import random
@@ -12,6 +14,14 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import RLock
 from typing import Any
 from urllib.parse import parse_qs, urlparse
+
+DEFAULT_JWT_SECRET = "Y2FtcHVzZmxvdy1kZW1vLXNlY3JldC1mb3ItamF2YS1iYWNrZW5kLTIwMjY="
+JWT_HMAC_ALGORITHMS = {
+    "HS256": hashlib.sha256,
+    "HS384": hashlib.sha384,
+    "HS512": hashlib.sha512,
+}
+TOKEN_JSON_KEYS = ("token", "accessToken", "access_token", "jwt", "idToken", "id_token")
 
 
 class BusinessError(Exception):
@@ -68,6 +78,78 @@ def _bool(value: Any, default: bool | None = None) -> bool | None:
     if isinstance(value, bool):
         return value
     return str(value).lower() in {"1", "true", "yes", "on"}
+
+
+def _urlsafe_b64decode(value: str) -> bytes:
+    padded = value + "=" * (-len(value) % 4)
+    return base64.urlsafe_b64decode(padded.encode())
+
+
+def _decode_json_segment(value: str) -> dict[str, Any]:
+    data = json.loads(_urlsafe_b64decode(value).decode())
+    if not isinstance(data, dict):
+        raise ValueError("JWT segment must decode to a JSON object")
+    return data
+
+
+def _jwt_secret() -> bytes:
+    secret = os.environ.get("CAMPUSFLOW_JWT_SECRET", DEFAULT_JWT_SECRET)
+    try:
+        return base64.b64decode(secret, validate=True)
+    except Exception:
+        return secret.encode()
+
+
+def _strip_token_quotes(token: str) -> str:
+    token = token.strip()
+    while len(token) >= 2 and token[0] == token[-1] and token[0] in {"'", '"'}:
+        token = token[1:-1].strip()
+    return token
+
+
+def _normalize_token(value: str | None) -> str | None:
+    token = _strip_token_quotes(str(value or ""))
+    for _ in range(4):
+        parts = token.split(None, 1)
+        if len(parts) != 2 or parts[0].lower() not in {"bearer", "token"}:
+            break
+        token = _strip_token_quotes(parts[1])
+    if token.startswith("{"):
+        try:
+            data = json.loads(token)
+            if isinstance(data, dict):
+                for key in TOKEN_JSON_KEYS:
+                    nested = data.get(key)
+                    if nested:
+                        return _normalize_token(str(nested))
+        except Exception:
+            pass
+    return token or None
+
+
+def _decode_legacy_jwt(token: str) -> dict[str, Any] | None:
+    try:
+        header_segment, payload_segment, signature_segment = token.split(".")
+        header = _decode_json_segment(header_segment)
+        digestmod = JWT_HMAC_ALGORITHMS.get(str(header.get("alg") or ""))
+        if digestmod is None:
+            return None
+        signing_input = f"{header_segment}.{payload_segment}".encode()
+        expected_signature = hmac.new(_jwt_secret(), signing_input, digestmod).digest()
+        actual_signature = _urlsafe_b64decode(signature_segment)
+        if not hmac.compare_digest(expected_signature, actual_signature):
+            return None
+        payload = _decode_json_segment(payload_segment)
+        now_ts = datetime.now().timestamp()
+        exp = _int(payload.get("exp"))
+        nbf = _int(payload.get("nbf"))
+        if exp is not None and now_ts >= exp:
+            return None
+        if nbf is not None and now_ts < nbf:
+            return None
+        return payload
+    except Exception:
+        return None
 
 
 def _page(records: list[dict[str, Any]], params: dict[str, Any]) -> dict[str, Any]:
@@ -204,6 +286,9 @@ class CampusFlowStore:
             "我擅长前端原型和交互实现，希望一起参加。",
         )
 
+        role_participants = [student01, captain, organizer, admin]
+        self.seed_showcase_activities(now, organizer, captain, role_participants)
+
         self.create_notice(captain["id"], "报名已提交", "队伍 Campus Masters 已提交创新挑战赛报名，请等待组织者审核。", "review_result")
         self.create_notice(student03["id"], "入队申请已发送", "你对队伍 Idea Spark 的申请已提交，请等待队长审核。", "team_apply")
         self.create_notice(admin["id"], "系统巡检提醒", "当前演示环境已初始化，可使用管理员账号发布公告。", "system", is_read=True)
@@ -230,6 +315,100 @@ class CampusFlowStore:
                 "createdAt": _iso(now - timedelta(hours=2)),
             }
         )
+
+    def seed_showcase_activities(
+        self,
+        now: datetime,
+        organizer: dict[str, Any],
+        captain: dict[str, Any],
+        participants: list[dict[str, Any]],
+    ) -> None:
+        activity_rows = [
+            ("校园摄影漫步", "文化体验", "樱花大道与艺术楼", False, 2, 2, "signup_open", ["摄影", "校园", "美育"]),
+            ("社团开放日市集", "社团招新", "南区广场", False, 3, 3, "published", ["社团", "市集", "展示"]),
+            ("低碳校园行动周", "公益实践", "教学楼群", True, 4, 6, "signup_open", ["低碳", "公益", "实践"]),
+            ("校园辩论挑战夜", "思辨竞赛", "人文楼报告厅", True, 4, 4, "signup_open", ["辩论", "表达", "团队"]),
+            ("迎新志愿服务队", "志愿服务", "新生报到点", True, 5, 8, "signup_open", ["迎新", "志愿", "协作"]),
+            ("数据可视化工作坊", "技术沙龙", "信息楼 B204", False, 1, 1, "signup_open", ["数据", "可视化", "工具"]),
+            ("校园音乐草坪会", "艺术活动", "中心草坪", False, 1, 1, "published", ["音乐", "草坪", "开放麦"]),
+            ("创业计划训练营", "创新竞赛", "创业学院 301", True, 3, 5, "signup_open", ["创业", "商业计划", "路演"]),
+            ("心理健康同伴营", "成长支持", "心理中心团辅室", False, 1, 1, "signup_open", ["心理", "同伴", "成长"]),
+            ("机器人创客赛", "技术竞赛", "工程训练中心", True, 3, 6, "signup_open", ["机器人", "创客", "竞赛"]),
+            ("校园安全微课堂", "安全教育", "线上会议室", False, 1, 1, "published", ["安全", "课堂", "校园"]),
+            ("非遗手作体验课", "文化体验", "美育工坊", False, 1, 1, "signup_open", ["非遗", "手作", "体验"]),
+            ("运动嘉年华", "体育活动", "东区体育场", True, 4, 8, "signup_open", ["运动", "嘉年华", "团队"]),
+            ("读书分享下午茶", "阅读活动", "图书馆咖啡角", False, 1, 1, "signup_open", ["阅读", "分享", "交流"]),
+            ("校园产品经理训练", "技术沙龙", "信息楼 A401", True, 3, 5, "signup_open", ["产品", "原型", "调研"]),
+            ("急救技能认证课", "安全教育", "校医院培训室", False, 1, 1, "signup_closed", ["急救", "技能", "认证"]),
+            ("毕业季影像征集", "文化体验", "线上征集", False, 1, 1, "signup_open", ["影像", "毕业季", "征集"]),
+            ("公益支教共创会", "公益实践", "明德楼 105", True, 4, 7, "signup_open", ["支教", "公益", "共创"]),
+            ("算法趣味闯关赛", "技术竞赛", "信息楼机房", True, 3, 5, "signup_open", ["算法", "闯关", "竞赛"]),
+            ("校园成果复盘会", "结果反馈", "图书馆研讨室", False, 1, 1, "finished", ["复盘", "反馈", "总结"]),
+        ]
+        for index, row in enumerate(activity_rows, start=1):
+            title, activity_type, location, require_team, min_size, max_size, status, tags = row
+            day_offset = index + 1
+            if status == "finished":
+                start_time = now - timedelta(days=2)
+                signup_deadline = now - timedelta(days=6)
+            elif status == "signup_closed":
+                start_time = now + timedelta(days=day_offset)
+                signup_deadline = now - timedelta(hours=8)
+            else:
+                start_time = now + timedelta(days=day_offset)
+                signup_deadline = start_time - timedelta(days=2)
+            end_time = start_time + timedelta(hours=3)
+            activity = self.add_activity(
+                title=title,
+                coverUrl=f"https://picsum.photos/seed/campusflow-{index:02d}/1200/800",
+                description=f"{title} 面向全校开放，四类角色账号都已预置参与路径，适合前端演示和流程测试。",
+                organizerId=organizer["id"],
+                type=activity_type,
+                location=location,
+                startTime=start_time,
+                endTime=end_time,
+                signupDeadline=signup_deadline,
+                requireTeam=require_team,
+                minTeamSize=min_size,
+                maxTeamSize=max_size,
+                status=status,
+                tags=tags,
+                signCode=f"CF{index:02d}26",
+                signStartTime=start_time - timedelta(hours=1),
+                signEndTime=start_time + timedelta(hours=2),
+                resultSummary="本场活动已完成复盘，可查看签到和反馈链路。" if status == "finished" else None,
+            )
+            if require_team:
+                team = self.add_team(
+                    activity["id"],
+                    f"{title}四角色体验队",
+                    captain["id"],
+                    "四种角色一起走完整流程",
+                    "学生、队长、组织者、管理员账号都已加入该队伍，便于直接演示参与状态。",
+                    "approved",
+                )
+                for member_index, participant in enumerate(participants):
+                    self.add_member(
+                        team["id"],
+                        participant["id"],
+                        "leader" if participant["id"] == captain["id"] else "member",
+                        "approved",
+                        now - timedelta(hours=member_index + 1),
+                    )
+                    self.add_sign_record(
+                        activity["id"],
+                        participant["id"],
+                        "signed" if status == "finished" else "unsigned",
+                        start_time + timedelta(minutes=member_index * 5) if status == "finished" else None,
+                    )
+            else:
+                for participant in participants:
+                    self.add_sign_record(
+                        activity["id"],
+                        participant["id"],
+                        "signed" if status == "finished" else "unsigned",
+                        start_time + timedelta(minutes=10) if status == "finished" else None,
+                    )
 
     def add_user(self, username: str, nickname: str, email: str, role: str) -> dict[str, Any]:
         user = {
@@ -362,18 +541,53 @@ class CampusFlowStore:
         return "demo." + base64.urlsafe_b64encode(payload).decode().rstrip("=")
 
     def user_from_token(self, token: str | None) -> dict[str, Any] | None:
-        if not token or not token.startswith("demo."):
+        if not token:
             return None
+        if not token.startswith("demo."):
+            return self.user_from_legacy_jwt(token)
         try:
             raw = token.removeprefix("demo.")
-            raw += "=" * (-len(raw) % 4)
-            payload = json.loads(base64.urlsafe_b64decode(raw.encode()).decode())
+            payload = json.loads(_urlsafe_b64decode(raw).decode())
             return self.user_by_id(_int(payload.get("id")))
         except Exception:
             return None
 
+    def user_from_legacy_jwt(self, token: str) -> dict[str, Any] | None:
+        payload = _decode_legacy_jwt(token)
+        if payload is None:
+            return None
+        username = str(
+            payload.get("username")
+            or payload.get("userName")
+            or payload.get("preferred_username")
+            or payload.get("login")
+            or payload.get("account")
+            or ""
+        ).strip()
+        if username:
+            user = self.user_by_username(username)
+            if user is not None:
+                return user
+        subject = str(payload.get("sub") or "").strip()
+        if subject:
+            user = self.user_by_username(subject)
+            if user is not None:
+                return user
+        email = str(payload.get("email") or "").strip()
+        if email:
+            user = self.user_by_email(email)
+            if user is not None:
+                return user
+        return self.user_by_id(_int(payload.get("sub") or payload.get("id") or payload.get("userId") or payload.get("user_id") or payload.get("uid")))
+
     def user_by_id(self, user_id: int | None) -> dict[str, Any] | None:
         return next((user for user in self.users if user["id"] == user_id), None)
+
+    def user_by_username(self, username: str) -> dict[str, Any] | None:
+        return next((user for user in self.users if user["username"] == username), None)
+
+    def user_by_email(self, email: str) -> dict[str, Any] | None:
+        return next((user for user in self.users if user.get("email") == email), None)
 
     def activity_by_id(self, activity_id: int | None) -> dict[str, Any] | None:
         return next((activity for activity in self.activities if activity["id"] == activity_id), None)
@@ -1165,7 +1379,7 @@ class CampusFlowHandler(BaseHTTPRequestHandler):
     def send_cors_headers(self) -> None:
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type")
+        self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type, X-Access-Token, X-Demo-Username, X-Demo-User-Id")
         self.send_header("Access-Control-Max-Age", "86400")
 
     def send_json(self, payload: dict[str, Any], status: int = 200) -> None:
@@ -1193,12 +1407,29 @@ class CampusFlowHandler(BaseHTTPRequestHandler):
         return data
 
     def current_user(self, required: bool = False) -> dict[str, Any] | None:
-        auth = self.headers.get("Authorization", "")
-        token = auth.split(" ", 1)[1] if auth.lower().startswith("bearer ") else None
-        user = self.server.store.user_from_token(token)
-        if required and user is None:
+        query = parse_qs(urlparse(self.path).query)
+        candidates = [
+            _normalize_token(self.headers.get("Authorization")),
+            _normalize_token(self.headers.get("X-Access-Token")),
+            _normalize_token((query.get("access_token") or query.get("token") or [None])[-1]),
+        ]
+        for token in candidates:
+            user = self.server.store.user_from_token(token)
+            if user is not None:
+                return user
+        demo_username = str(self.headers.get("X-Demo-Username") or "").strip()
+        if demo_username:
+            user = self.server.store.user_by_username(demo_username)
+            if user is not None:
+                return user
+        demo_user_id = _int(self.headers.get("X-Demo-User-Id"))
+        if demo_user_id is not None:
+            user = self.server.store.user_by_id(demo_user_id)
+            if user is not None:
+                return user
+        if required:
             raise BusinessError("请先登录", 401, 401)
-        return user
+        return None
 
     def handle_json(self, method: str) -> None:
         parsed = urlparse(self.path)
