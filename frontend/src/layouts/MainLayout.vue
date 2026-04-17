@@ -4,11 +4,7 @@
       <div class="page-shell header-shell">
         <div class="header-card">
           <RouterLink to="/activities" class="brand">
-            <div class="brand-mark">CF</div>
-            <div class="brand-copy">
-              <div class="brand-name">CampusFlow</div>
-              <div class="brand-desc">校园活动运营平台</div>
-            </div>
+            <img class="brand-logo" :src="brandLogo" alt="CampusFlow 校园活动更高效" />
           </RouterLink>
 
           <nav class="nav-links" aria-label="主导航">
@@ -73,6 +69,7 @@ import { computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import ThemeToggle from '../components/ThemeToggle.vue'
+import brandLogo from '../assets/brand/logo.png'
 import { useNoticeStore } from '../stores/notice'
 import { useUserStore } from '../stores/user'
 import { roleLabelMap } from '../utils/format'
@@ -133,10 +130,7 @@ const handleLogout = () => {
 }
 
 .layout-header {
-  position: sticky;
-  top: 0;
-  z-index: 30;
-  backdrop-filter: blur(14px);
+  position: relative;
 }
 
 .header-shell {
@@ -154,33 +148,14 @@ const handleLogout = () => {
 .brand {
   display: flex;
   align-items: center;
-  gap: 14px;
+  width: clamp(78px, 7.5vw, 102px);
+  flex-shrink: 0;
 }
 
-.brand-mark {
-  min-width: 48px;
-  height: 48px;
-  display: grid;
-  place-items: center;
-  border-radius: 16px;
-  background: linear-gradient(135deg, var(--cf-primary), color-mix(in srgb, var(--cf-primary) 72%, white));
-  color: white;
-  font-size: 16px;
-  font-weight: 800;
-  letter-spacing: 0.04em;
-  box-shadow: 0 12px 28px color-mix(in srgb, var(--cf-primary) 24%, transparent);
-}
-
-.brand-name {
-  font-size: 20px;
-  font-weight: 800;
-  letter-spacing: -0.04em;
-}
-
-.brand-desc {
-  margin-top: 4px;
-  color: var(--cf-ink-soft);
-  font-size: 12px;
+.brand-logo {
+  width: 100%;
+  height: auto;
+  display: block;
 }
 
 .nav-links {
@@ -281,6 +256,10 @@ const handleLogout = () => {
 }
 
 @media (max-width: 720px) {
+  .brand {
+    width: clamp(72px, 21vw, 88px);
+  }
+
   .user-chip {
     width: 100%;
     justify-content: center;

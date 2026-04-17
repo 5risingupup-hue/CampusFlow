@@ -1,5 +1,5 @@
 <template>
-  <div class="hero-cluster" :class="side">
+  <div class="hero-cluster" :class="side" aria-hidden="true">
     <span
       v-for="pixel in pixels"
       :key="pixel.name"
@@ -18,48 +18,25 @@
       {{ badge.emoji }}
     </span>
 
-    <div class="scene-card scene-top">
+    <div
+      v-for="figure in figures"
+      :key="figure.name"
+      class="scene-card"
+      :class="figure.sceneClass"
+    >
       <div class="scene-block" />
       <div class="scene-shadow" />
-      <div class="character character-top">
-        <div class="character-hair" />
-        <div class="character-head" />
-        <div class="character-face">
-          <span class="eye" />
-          <span class="eye" />
-        </div>
-        <div class="character-body" />
-        <div class="character-arm arm-left" />
-        <div class="character-arm arm-right" />
-        <div class="character-leg leg-left" />
-        <div class="character-leg leg-right" />
-        <div class="character-prop" />
-      </div>
-    </div>
-
-    <div class="scene-card scene-bottom">
-      <div class="scene-block" />
-      <div class="scene-shadow" />
-      <div class="character character-bottom">
-        <div class="character-hair" />
-        <div class="character-head" />
-        <div class="character-face">
-          <span class="eye" />
-          <span class="eye" />
-        </div>
-        <div class="character-body" />
-        <div class="character-arm arm-left" />
-        <div class="character-arm arm-right" />
-        <div class="character-leg leg-left" />
-        <div class="character-leg leg-right" />
-        <div class="character-prop" />
-      </div>
+      <img class="figure-media" :class="figure.imageClass" :src="figure.src" alt="" />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import heroFigureFeedback from '../assets/hero/hero-figure-feedback.png'
+import heroFigureOrganizer from '../assets/hero/hero-figure-organizer.png'
+import heroFigureReview from '../assets/hero/hero-figure-review.png'
+import heroFigureTeam from '../assets/hero/hero-figure-team.png'
 
 const props = defineProps<{
   side: 'left' | 'right'
@@ -108,6 +85,38 @@ const pixels = computed(() =>
         { name: 'pixel-h', size: 14 }
       ]
 )
+
+const figures = computed(() =>
+  props.side === 'left'
+    ? [
+        {
+          name: 'organizer',
+          src: heroFigureOrganizer,
+          sceneClass: 'scene-top',
+          imageClass: 'image-organizer'
+        },
+        {
+          name: 'team',
+          src: heroFigureTeam,
+          sceneClass: 'scene-bottom',
+          imageClass: 'image-team'
+        }
+      ]
+    : [
+        {
+          name: 'feedback',
+          src: heroFigureFeedback,
+          sceneClass: 'scene-top',
+          imageClass: 'image-feedback'
+        },
+        {
+          name: 'review',
+          src: heroFigureReview,
+          sceneClass: 'scene-bottom',
+          imageClass: 'image-review'
+        }
+      ]
+)
 </script>
 
 <style scoped>
@@ -117,8 +126,13 @@ const pixels = computed(() =>
   min-height: 520px;
 }
 
-.scene-card {
+.scene-card,
+.badge,
+.pixel {
   position: absolute;
+}
+
+.scene-card {
   overflow: visible;
 }
 
@@ -153,14 +167,7 @@ const pixels = computed(() =>
 }
 
 .scene-block {
-  position: absolute;
-  inset: 0;
-  border-radius: 24px;
-  background: linear-gradient(180deg, #e7c4a2, #e0b88f);
-}
-
-:root[data-theme='dark'] .scene-block {
-  background: linear-gradient(180deg, #d0a67f, #b78b63);
+  display: none;
 }
 
 .scene-shadow {
@@ -172,238 +179,37 @@ const pixels = computed(() =>
   filter: blur(10px);
 }
 
-.character {
+.figure-media {
   position: absolute;
   left: 50%;
-  bottom: 18px;
+  bottom: 10px;
+  height: auto;
   transform: translateX(-50%);
+  filter: drop-shadow(0 10px 18px rgba(26, 33, 49, 0.18));
+  user-select: none;
+  pointer-events: none;
 }
 
-.character-head {
-  position: absolute;
-  left: 50%;
-  top: 26px;
-  width: 52px;
-  height: 52px;
-  margin-left: -26px;
-  border-radius: 50%;
-  background: #f2ccaa;
-  z-index: 3;
+.image-organizer {
+  width: auto;
+  height: 255px;
 }
 
-.character-face {
-  position: absolute;
-  left: 50%;
-  top: 48px;
-  display: flex;
-  gap: 10px;
-  margin-left: -15px;
-  z-index: 4;
+.image-team {
+  width: auto;
+  height: 291px;
+  bottom: 6px;
 }
 
-.eye {
-  width: 5px;
-  height: 7px;
-  border-radius: 999px;
-  background: #1f2d3d;
+.image-feedback {
+  width: auto;
+  height: 255px;
 }
 
-.character-hair {
-  position: absolute;
-  left: 50%;
-  top: 12px;
-  width: 72px;
-  height: 58px;
-  margin-left: -36px;
-  border-radius: 40px 40px 28px 28px;
-  z-index: 2;
-}
-
-.character-body {
-  position: absolute;
-  left: 50%;
-  top: 72px;
-  width: 84px;
-  height: 86px;
-  margin-left: -42px;
-  border-radius: 28px 28px 20px 20px;
-  z-index: 1;
-}
-
-.character-arm,
-.character-leg {
-  position: absolute;
-  border-radius: 999px;
-  z-index: 0;
-}
-
-.character-arm {
-  top: 84px;
-  width: 18px;
-  height: 70px;
-  background: #f0c7a7;
-}
-
-.arm-left {
-  left: 8px;
-  transform: rotate(14deg);
-}
-
-.arm-right {
-  right: 8px;
-  transform: rotate(-18deg);
-}
-
-.character-leg {
-  top: 148px;
-  width: 24px;
-  height: 64px;
-  background: #2b3143;
-}
-
-.leg-left {
-  left: 40px;
-}
-
-.leg-right {
-  right: 40px;
-}
-
-.character-prop {
-  position: absolute;
-  z-index: 4;
-}
-
-.hero-cluster.left .character-top {
-  width: 122px;
-  height: 208px;
-}
-
-.hero-cluster.left .character-top .character-hair {
-  background: #d96929;
-  box-shadow: inset 0 -8px 0 rgba(120, 44, 10, 0.2);
-}
-
-.hero-cluster.left .character-top .character-body {
-  background: #8a7463;
-}
-
-.hero-cluster.left .character-top .character-prop {
-  left: 24px;
-  top: 112px;
-  width: 74px;
-  height: 48px;
-  border-radius: 14px;
-  background: #f0e7d8;
-  border: 3px solid #3d372f;
-  box-shadow: inset 0 0 0 6px #f8f1e4;
-}
-
-.hero-cluster.left .character-top .character-prop::before,
-.hero-cluster.left .character-top .character-prop::after {
-  content: "";
-  position: absolute;
-  top: 16px;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  border: 3px solid #3d372f;
-}
-
-.hero-cluster.left .character-top .character-prop::before {
-  left: 14px;
-}
-
-.hero-cluster.left .character-top .character-prop::after {
-  right: 14px;
-}
-
-.hero-cluster.left .character-bottom {
-  width: 128px;
-  height: 224px;
-}
-
-.hero-cluster.left .character-bottom .character-hair {
-  background: #463f39;
-  width: 82px;
-  height: 72px;
-  margin-left: -41px;
-}
-
-.hero-cluster.left .character-bottom .character-body {
-  background: #2f2d2f;
-  top: 76px;
-  height: 92px;
-}
-
-.hero-cluster.left .character-bottom .character-prop {
-  left: 40px;
-  top: 126px;
-  width: 48px;
-  height: 58px;
-  border-radius: 10px;
-  background: #2a66d1;
-  box-shadow: inset 0 -8px 0 rgba(10, 43, 102, 0.2);
-}
-
-.hero-cluster.right .character-top {
-  width: 124px;
-  height: 206px;
-}
-
-.hero-cluster.right .character-top .character-hair {
-  background: #24272e;
-  width: 80px;
-  height: 62px;
-  margin-left: -40px;
-}
-
-.hero-cluster.right .character-top .character-body {
-  background: #21242c;
-  border: 6px solid #d24444;
-  top: 76px;
-  height: 96px;
-}
-
-.hero-cluster.right .character-top .character-prop {
-  right: 8px;
-  top: 102px;
-  width: 26px;
-  height: 48px;
-  border-radius: 12px;
-  background: #2f3744;
-}
-
-.hero-cluster.right .character-bottom {
-  width: 138px;
-  height: 226px;
-}
-
-.hero-cluster.right .character-bottom .character-hair {
-  background: #cc7a3b;
-  box-shadow: inset 0 -8px 0 rgba(99, 50, 18, 0.16);
-}
-
-.hero-cluster.right .character-bottom .character-body {
-  background: #224fa0;
-  width: 96px;
-  margin-left: -48px;
-  height: 92px;
-}
-
-.hero-cluster.right .character-bottom .character-prop {
-  right: 10px;
-  top: 114px;
-  width: 26px;
-  height: 34px;
-  border-radius: 8px;
-  background: #f8f6f0;
-  box-shadow: inset 0 -8px 0 rgba(216, 178, 121, 0.28);
-}
-
-.badge,
-.pixel {
-  position: absolute;
+.image-review {
+  width: auto;
+  height: 297px;
+  bottom: 4px;
 }
 
 .badge {
