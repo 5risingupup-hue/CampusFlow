@@ -10,27 +10,8 @@
         <h1>一个把校园活动运营流程真正串起来的统一入口</h1>
         <p>
           CampusFlow 将活动发布、队伍协作、审核通知、签到反馈放在同一个平台内处理。
-          无论你是学生、队长、组织者还是管理员，都能从这里进入对应的工作流。
+          学生创建队伍后即可承担队长职责，组织者和管理员则进入对应的运营工作流。
         </p>
-
-        <div class="feature-grid">
-          <div class="feature-card">
-            <strong>入口统一</strong>
-            <span>活动浏览、协作报名、消息提醒和运营台统一收口。</span>
-          </div>
-          <div class="feature-card">
-            <strong>协作清晰</strong>
-            <span>队长、组织者和管理员各自拥有直接可用的工作入口。</span>
-          </div>
-          <div class="feature-card">
-            <strong>状态同步</strong>
-            <span>审核结果、公告广播和流程通知都能自动回流到消息中心。</span>
-          </div>
-          <div class="feature-card">
-            <strong>流程闭环</strong>
-            <span>从报名到签到再到反馈复盘，不再依赖多个分散页面。</span>
-          </div>
-        </div>
 
         <div class="account-wall">
           <button
@@ -56,7 +37,7 @@
 
         <el-form :model="form" label-position="top" @submit.prevent="handleSubmit">
           <el-form-item label="用户名">
-            <el-input v-model="form.username" placeholder="例如 student01 / organizer01" />
+            <el-input v-model="form.username" placeholder="例如 student01 / organizer01 / admin01" />
           </el-form-item>
           <el-form-item label="密码">
             <el-input v-model="form.password" show-password placeholder="默认 123456" />
@@ -88,8 +69,7 @@ const form = reactive({
 })
 
 const accounts = [
-  { label: '学生入口', username: 'student01', caption: '浏览活动、加队、签到和反馈' },
-  { label: '队长入口', username: 'captain01', caption: '队伍管理、入队审批、提交报名' },
+  { label: '学生入口', username: 'student01', caption: '浏览活动、创建队伍或申请加入' },
   { label: '组织者入口', username: 'organizer01', caption: '发布活动、审核报名、运营活动' },
   { label: '管理员入口', username: 'admin01', caption: '公告治理、平台消息与系统管理' }
 ]
@@ -157,14 +137,11 @@ const handleSubmit = async () => {
   font-size: 15px;
 }
 
-.feature-grid,
 .account-wall {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
 }
 
-.feature-card,
 .account-card {
   padding: 18px;
   border: 1px solid var(--cf-line);
@@ -172,13 +149,11 @@ const handleSubmit = async () => {
   background: var(--cf-surface-strong);
 }
 
-.feature-card strong,
 .account-card strong {
   display: block;
   font-size: 16px;
 }
 
-.feature-card span,
 .account-card span {
   display: block;
   margin-top: 8px;
@@ -245,7 +220,6 @@ const handleSubmit = async () => {
 
 @media (max-width: 980px) {
   .login-board,
-  .feature-grid,
   .account-wall {
     grid-template-columns: 1fr;
   }

@@ -183,7 +183,11 @@ class CampusFlowStore:
         student01 = self.add_user("student01", "Alice", "alice@campusflow.local", "student")
         student02 = self.add_user("student02", "Brian", "brian@campusflow.local", "student")
         student03 = self.add_user("student03", "Clara", "clara@campusflow.local", "student")
-        captain = self.add_user("captain01", "Bob", "bob@campusflow.local", "captain")
+        student04 = self.add_user("student04", "Bob", "bob@campusflow.local", "student")
+        self.add_user("student05", "Eva", "eva@campusflow.local", "student")
+        self.add_user("student06", "Frank", "frank@campusflow.local", "student")
+        self.add_user("student07", "Grace", "grace@campusflow.local", "student")
+        self.add_user("student08", "Henry", "henry@campusflow.local", "student")
         organizer = self.add_user("organizer01", "Cindy", "cindy@campusflow.local", "organizer")
         admin = self.add_user("admin01", "David", "david@campusflow.local", "admin")
 
@@ -250,18 +254,18 @@ class CampusFlowStore:
         submitted = self.add_team(
             innovation["id"],
             "Campus Masters",
-            captain["id"],
+            student04["id"],
             "协作赢未来",
             "专注创新方案与执行落地",
             "submitted",
         )
-        self.add_member(submitted["id"], captain["id"], "leader", "approved", now - timedelta(days=1))
+        self.add_member(submitted["id"], student04["id"], "leader", "approved", now - timedelta(days=1))
         self.add_member(submitted["id"], student02["id"], "member", "approved", now - timedelta(hours=20))
         self.add_member(submitted["id"], student03["id"], "member", "approved", now - timedelta(hours=18))
         self.add_application(
             innovation["id"],
             submitted["id"],
-            captain["id"],
+            student04["id"],
             "signup_team",
             "pending",
             "我们已完成队伍组建，希望参加创新挑战赛。",
@@ -286,9 +290,9 @@ class CampusFlowStore:
             "我擅长前端原型和交互实现，希望一起参加。",
         )
 
-        self.seed_showcase_activities(now, organizer, captain, student01, student02, student03)
+        self.seed_showcase_activities(now, organizer, student04, student01, student02, student03)
 
-        self.create_notice(captain["id"], "报名已提交", "队伍 Campus Masters 已提交创新挑战赛报名，请等待组织者审核。", "review_result")
+        self.create_notice(student04["id"], "报名已提交", "队伍 Campus Masters 已提交创新挑战赛报名，请等待组织者审核。", "review_result")
         self.create_notice(student03["id"], "入队申请已发送", "你对队伍 Idea Spark 的申请已提交，请等待队长审核。", "team_apply")
         self.create_notice(admin["id"], "系统巡检提醒", "当前演示环境已初始化，可使用管理员账号发布公告。", "system", is_read=True)
 
@@ -319,7 +323,7 @@ class CampusFlowStore:
         self,
         now: datetime,
         organizer: dict[str, Any],
-        captain: dict[str, Any],
+        student04: dict[str, Any],
         student01: dict[str, Any],
         student02: dict[str, Any],
         student03: dict[str, Any],
@@ -380,7 +384,7 @@ class CampusFlowStore:
                 resultSummary="本场活动已完成复盘，可查看签到和反馈链路。" if status == "finished" else None,
             )
             if require_team:
-                leaders = [student02, student03, captain]
+                leaders = [student02, student03, student04]
                 leader = leaders[index % len(leaders)]
                 sample_team = self.add_team(
                     activity["id"],
@@ -393,7 +397,7 @@ class CampusFlowStore:
                 self.add_member(sample_team["id"], leader["id"], "leader", "approved", now - timedelta(hours=index))
             else:
                 if status == "finished":
-                    for participant in [student01, student02, student03, captain]:
+                    for participant in [student01, student02, student03, student04]:
                         self.add_sign_record(
                             activity["id"],
                             participant["id"],
@@ -964,7 +968,8 @@ class CampusFlowStore:
         for team in self.teams:
             if team["status"] != "forming":
                 continue
-            if keyword and keyword not in team["teamName"].lower():
+            invite_code = str(team.get("inviteCode") or "").lower()
+            if keyword and keyword not in team["teamName"].lower() and keyword not in invite_code:
                 continue
             if activity_id is not None and team["activityId"] != activity_id:
                 continue
@@ -990,7 +995,10 @@ class CampusFlowStore:
                     if membership_team is None or membership_team["activityId"] != team["activityId"]:
                         continue
                     if membership_team["id"] == team["id"]:
-                        joined = True
+                        if membership["joinStatus"] == "approved":
+                            joined = True
+                        else:
+                            applied = True
                     else:
                         joined_other_activity_team = True
             current_size = self.approved_member_count(team["id"])
@@ -1002,6 +1010,7 @@ class CampusFlowStore:
                     "teamName": team["teamName"],
                     "slogan": team.get("slogan"),
                     "description": team.get("description"),
+                    "inviteCode": team["inviteCode"],
                     "leaderId": team["leaderId"],
                     "leaderName": leader["nickname"] if leader else "未知队长",
                     "currentSize": current_size,

@@ -145,9 +145,6 @@ const primaryAction = computed(() => {
   if (isOrganizer.value) {
     return { label: '处理审核待办', path: '/organizer/reviews' }
   }
-  if (userStore.role === 'captain') {
-    return { label: '进入队伍协作', path: '/teams/join' }
-  }
   return { label: '查看可参与活动', path: '/activities' }
 })
 
@@ -193,7 +190,7 @@ const quickActions = computed(() =>
           caption: '查找队伍、处理入队和跟进提交状态。',
           button: '进入协作',
           path: '/teams/join',
-          primary: userStore.role === 'captain'
+          primary: false
         }
       : null,
     isOrganizer.value

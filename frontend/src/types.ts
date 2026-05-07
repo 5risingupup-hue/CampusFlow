@@ -100,6 +100,7 @@ export interface TeamListItem {
   teamName: string
   slogan?: string
   description?: string
+  inviteCode: string
   leaderId: number
   leaderName: string
   currentSize: number

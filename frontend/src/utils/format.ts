@@ -45,7 +45,7 @@ export const statusLabelMap: Record<string, string> = {
 
 export const roleLabelMap: Record<string, string> = {
   student: '学生',
-  captain: '队长',
+  captain: '学生',
   organizer: '组织者',
   admin: '管理员'
 }

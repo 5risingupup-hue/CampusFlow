@@ -67,7 +67,6 @@ public class DataInitializer {
             return;
         }
         insertRole("student", "普通学生用户");
-        insertRole("captain", "队长");
         insertRole("organizer", "活动组织者");
         insertRole("admin", "系统管理员");
     }
@@ -82,7 +81,11 @@ public class DataInitializer {
         insertUser("student01", "Alice", "alice@campusflow.local", roleIds.get("student"));
         insertUser("student02", "Brian", "brian@campusflow.local", roleIds.get("student"));
         insertUser("student03", "Clara", "clara@campusflow.local", roleIds.get("student"));
-        insertUser("captain01", "Bob", "bob@campusflow.local", roleIds.get("captain"));
+        insertUser("student04", "Bob", "bob@campusflow.local", roleIds.get("student"));
+        insertUser("student05", "Eva", "eva@campusflow.local", roleIds.get("student"));
+        insertUser("student06", "Frank", "frank@campusflow.local", roleIds.get("student"));
+        insertUser("student07", "Grace", "grace@campusflow.local", roleIds.get("student"));
+        insertUser("student08", "Henry", "henry@campusflow.local", roleIds.get("student"));
         insertUser("organizer01", "Cindy", "cindy@campusflow.local", roleIds.get("organizer"));
         insertUser("admin01", "David", "david@campusflow.local", roleIds.get("admin"));
     }
@@ -92,7 +95,7 @@ public class DataInitializer {
             return;
         }
         User organizer = findUser("organizer01");
-        User captain = findUser("captain01");
+        User studentLeader = findUser("student04");
         User student01 = findUser("student01");
         User student02 = findUser("student02");
         User student03 = findUser("student03");
@@ -161,18 +164,18 @@ public class DataInitializer {
             null
         );
 
-        Team submittedTeam = insertTeam(innovation.getId(), "Campus Masters", captain.getId(), "协作赢未来", "专注创新方案与执行落地", TeamStatus.SUBMITTED.getCode());
-        insertMember(submittedTeam.getId(), captain.getId(), "leader", ReviewStatus.APPROVED.getCode(), LocalDateTime.now().minusDays(1));
+        Team submittedTeam = insertTeam(innovation.getId(), "Campus Masters", studentLeader.getId(), "协作赢未来", "专注创新方案与执行落地", TeamStatus.SUBMITTED.getCode());
+        insertMember(submittedTeam.getId(), studentLeader.getId(), "leader", ReviewStatus.APPROVED.getCode(), LocalDateTime.now().minusDays(1));
         insertMember(submittedTeam.getId(), student01.getId(), "member", ReviewStatus.APPROVED.getCode(), LocalDateTime.now().minusHours(20));
         insertMember(submittedTeam.getId(), student02.getId(), "member", ReviewStatus.APPROVED.getCode(), LocalDateTime.now().minusHours(18));
-        insertApplication(innovation.getId(), submittedTeam.getId(), captain.getId(), ApplicationType.SIGNUP_TEAM.getCode(), ReviewStatus.PENDING.getCode(), "我们已完成队伍组建，希望参加创新挑战赛。");
+        insertApplication(innovation.getId(), submittedTeam.getId(), studentLeader.getId(), ApplicationType.SIGNUP_TEAM.getCode(), ReviewStatus.PENDING.getCode(), "我们已完成队伍组建，希望参加创新挑战赛。");
 
         Team formingTeam = insertTeam(hackNight.getId(), "Idea Spark", student02.getId(), "今晚就把想法做出来", "欢迎擅长产品、前端和算法的同学加入", TeamStatus.FORMING.getCode());
         insertMember(formingTeam.getId(), student02.getId(), "leader", ReviewStatus.APPROVED.getCode(), LocalDateTime.now().minusHours(10));
         insertMember(formingTeam.getId(), student03.getId(), "member", ReviewStatus.PENDING.getCode(), null);
         insertApplication(hackNight.getId(), formingTeam.getId(), student03.getId(), ApplicationType.JOIN_TEAM.getCode(), ReviewStatus.PENDING.getCode(), "我擅长前端原型和交互实现，希望一起参加。");
 
-        insertNotification(captain.getId(), "报名已提交", "队伍 Campus Masters 已提交创新挑战赛报名，请等待组织者审核。", NotificationType.REVIEW_RESULT.getCode(), false);
+        insertNotification(studentLeader.getId(), "报名已提交", "队伍 Campus Masters 已提交创新挑战赛报名，请等待组织者审核。", NotificationType.REVIEW_RESULT.getCode(), false);
         insertNotification(student03.getId(), "入队申请已发送", "你对队伍 Idea Spark 的申请已提交，请等待队长审核。", NotificationType.TEAM_APPLY.getCode(), false);
         insertNotification(admin.getId(), "系统巡检提醒", "当前演示环境已初始化，可使用管理员账号发布公告。", NotificationType.SYSTEM.getCode(), true);
 

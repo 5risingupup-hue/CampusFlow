@@ -144,9 +144,15 @@ public class TeamService {
 
     public PageResult<TeamListItemVO> listJoinable(Long userId, TeamQueryRequest request) {
         Page<Team> page = new Page<>(request.getPageNum(), request.getPageSize());
+        String keyword = request.getKeyword() == null ? null : request.getKeyword().trim();
+        boolean hasKeyword = keyword != null && !keyword.isBlank();
+        String inviteKeyword = hasKeyword ? keyword.toUpperCase() : null;
         IPage<Team> result = teamMapper.selectPage(page, Wrappers.<Team>lambdaQuery()
             .eq(Team::getStatus, TeamStatus.FORMING.getCode())
-            .like(request.getKeyword() != null && !request.getKeyword().isBlank(), Team::getTeamName, request.getKeyword())
+            .and(hasKeyword, query -> query
+                .like(Team::getTeamName, keyword)
+                .or()
+                .like(Team::getInviteCode, inviteKeyword))
             .eq(request.getActivityId() != null, Team::getActivityId, request.getActivityId())
             .orderByDesc(Team::getCreatedAt));
         List<TeamListItemVO> records = result.getRecords().stream()
@@ -158,12 +164,29 @@ public class TeamService {
                 User leader = userMapper.selectById(team.getLeaderId());
                 int currentSize = getApprovedMemberCount(team.getId());
                 boolean applied = false;
+                boolean joined = false;
+                boolean canApply = false;
                 if (userId != null) {
+                    TeamMember currentMembership = teamMemberMapper.selectOne(Wrappers.<TeamMember>lambdaQuery()
+                        .eq(TeamMember::getTeamId, team.getId())
+                        .eq(TeamMember::getUserId, userId)
+                        .last("limit 1"));
+                    joined = currentMembership != null
+                        && ReviewStatus.APPROVED.getCode().equals(currentMembership.getJoinStatus());
+                    applied = currentMembership != null
+                        && ReviewStatus.PENDING.getCode().equals(currentMembership.getJoinStatus());
                     applied = applicationRecordMapper.selectCount(Wrappers.<ApplicationRecord>lambdaQuery()
                         .eq(ApplicationRecord::getTeamId, team.getId())
                         .eq(ApplicationRecord::getApplicantId, userId)
                         .eq(ApplicationRecord::getType, ApplicationType.JOIN_TEAM.getCode())
-                        .eq(ApplicationRecord::getStatus, ReviewStatus.PENDING.getCode())) > 0;
+                        .eq(ApplicationRecord::getStatus, ReviewStatus.PENDING.getCode())) > 0 || applied;
+                    boolean signupOpen = activity.getSignupDeadline() == null
+                        || !LocalDateTime.now().isAfter(activity.getSignupDeadline());
+                    canApply = signupOpen
+                        && !joined
+                        && !applied
+                        && !hasActiveMembershipInActivity(userId, team.getActivityId())
+                        && currentSize < activity.getMaxTeamSize();
                 }
                 return TeamListItemVO.builder()
                     .id(team.getId())
@@ -172,12 +195,15 @@ public class TeamService {
                     .teamName(team.getTeamName())
                     .slogan(team.getSlogan())
                     .description(team.getDescription())
+                    .inviteCode(team.getInviteCode())
                     .leaderId(team.getLeaderId())
                     .leaderName(leader == null ? "未知队长" : leader.getNickname())
                     .currentSize(currentSize)
                     .maxTeamSize(activity.getMaxTeamSize())
                     .status(team.getStatus())
                     .applied(applied)
+                    .joined(joined)
+                    .canApply(canApply)
                     .build();
             })
             .filter(java.util.Objects::nonNull)
@@ -320,15 +346,22 @@ public class TeamService {
     }
 
     private void assertNotInActivityTeam(Long userId, Long activityId) {
+        if (hasActiveMembershipInActivity(userId, activityId)) {
+            throw new BusinessException(409, "你已在当前活动的队伍中或申请待审核");
+        }
+    }
+
+    private boolean hasActiveMembershipInActivity(Long userId, Long activityId) {
         List<TeamMember> memberships = teamMemberMapper.selectList(Wrappers.<TeamMember>lambdaQuery()
             .eq(TeamMember::getUserId, userId)
             .in(TeamMember::getJoinStatus, List.of(ReviewStatus.PENDING.getCode(), ReviewStatus.APPROVED.getCode())));
         for (TeamMember membership : memberships) {
             Team current = teamMapper.selectById(membership.getTeamId());
             if (current != null && current.getActivityId().equals(activityId)) {
-                throw new BusinessException(409, "你已在当前活动的队伍中或申请待审核");
+                return true;
             }
         }
+        return false;
     }
 
     private String generateInviteCode() {

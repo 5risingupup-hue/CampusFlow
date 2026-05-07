@@ -44,8 +44,8 @@
           <el-form-item label="活动 ID">
             <el-input v-model.number="query.activityId" clearable placeholder="可从活动详情页带入" />
           </el-form-item>
-          <el-form-item label="队伍关键词">
-            <el-input v-model="query.keyword" clearable placeholder="如 Spark / Masters" />
+          <el-form-item label="队伍名或邀请码">
+            <el-input v-model="query.keyword" clearable placeholder="输入队伍名或邀请码，如 CF-DEMO-2" />
           </el-form-item>
           <div class="filter-actions">
             <el-button type="primary" round @click="fetchTeams">查询队伍</el-button>
@@ -61,7 +61,7 @@
         <div class="team-head">
           <div>
             <h3>{{ team.teamName }}</h3>
-            <p>{{ team.activityTitle }}</p>
+            <p>{{ team.activityTitle }} · 邀请码 {{ team.inviteCode }}</p>
           </div>
           <el-tag :type="statusTagTypeMap[team.status] || 'info'" round>
             {{ statusLabelMap[team.status] || team.status }}

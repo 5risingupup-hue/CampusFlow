@@ -178,7 +178,7 @@ const requireTeamCount = computed(() =>
 
 const workflows = [
   { step: '01', title: '发布活动', caption: '统一录入活动信息、时间窗口和签到规则。' },
-  { step: '02', title: '组队报名', caption: '学生按活动创建或加入队伍，队长集中提交。' },
+  { step: '02', title: '组队报名', caption: '学生按活动创建或加入队伍，队伍负责人集中提交。' },
   { step: '03', title: '审核同步', caption: '组织者处理审核后，结果自动写入通知中心。' },
   { step: '04', title: '现场签到', caption: '活动当天通过签到码完成状态校验与入场记录。' },
   { step: '05', title: '反馈回收', caption: '活动结束后沉淀反馈与结果复盘。' }
@@ -193,11 +193,11 @@ const roleEntries = computed(() => [
     primary: !userStore.isLoggedIn
   },
   {
-    title: '队长',
-    caption: '处理入队申请、维护成员并提交队伍报名。',
+    title: '组队协作',
+    caption: '学生创建队伍后可处理入队申请、维护成员并提交报名。',
     button: userStore.isLoggedIn ? '进入协作' : '登录查看',
     path: userStore.isLoggedIn ? '/teams/join' : '/login',
-    primary: userStore.role === 'captain'
+    primary: false
   },
   {
     title: '组织者',

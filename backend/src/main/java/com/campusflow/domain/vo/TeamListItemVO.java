@@ -13,10 +13,13 @@ public class TeamListItemVO {
     private String teamName;
     private String slogan;
     private String description;
+    private String inviteCode;
     private Long leaderId;
     private String leaderName;
     private Integer currentSize;
     private Integer maxTeamSize;
     private String status;
     private Boolean applied;
+    private Boolean joined;
+    private Boolean canApply;
 }
