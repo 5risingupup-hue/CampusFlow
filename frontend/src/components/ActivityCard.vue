@@ -40,18 +40,18 @@
 
       <div class="card-footer">
         <p class="footer-copy">
-          {{ activity.requireTeam ? '支持查看队伍、申请加入与后续协作。' : '支持查看活动规则、签到与反馈安排。' }}
+          {{ activity.requireTeam ? '创建队伍即成为队长，也可以申请加入已有队伍。' : '个人报名通过后可签到并提交反馈。' }}
         </p>
         <div class="footer-actions">
           <el-button round @click="router.push(`/activities/${activity.id}`)">查看详情</el-button>
           <el-button
-            v-if="activity.requireTeam"
+            v-if="activity.status === 'signup_open'"
             type="primary"
             round
             plain
-            @click="router.push(`/teams/join?activityId=${activity.id}`)"
+            @click="router.push(`/activities/${activity.id}`)"
           >
-            队伍协作
+            {{ activity.requireTeam ? '组队报名' : '个人报名' }}
           </el-button>
         </div>
       </div>

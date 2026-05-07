@@ -16,7 +16,10 @@ CampusFlow 是一个面向校园活动场景的前后端分离课程项目，围
 - 用户登录、Token 鉴权、个人资料查看/修改
 - 活动列表、活动详情、组织者活动管理
 - 创建队伍、加入队伍、队伍详情、队长提交报名
+- 个人活动报名、组织者审核个人报名
+- 队伍退出、成员移除、队长转让、队伍解散
 - 组织者审核报名、队长审核入队申请
+- 组织者活动状态流转：草稿、已发布、报名中、报名截止、已结束、已取消
 - 通知列表、未读数统计
 - 活动签到、签到状态查询
 - 活动反馈与历史评分展示
@@ -265,11 +268,17 @@ Python 后端保留了前端当前使用的核心接口：
 - `GET /api/activities/{id}`
 - `POST /api/activities`
 - `PUT /api/activities/{id}`
+- `POST /api/activities/{id}/signup`
+- `POST /api/activities/{id}/status`
 - `POST /api/teams`
 - `GET /api/teams/{id}`
 - `GET /api/teams/joinable`
 - `POST /api/teams/{id}/apply`
 - `POST /api/teams/{id}/submit`
+- `POST /api/teams/{id}/leave`
+- `POST /api/teams/{id}/disband`
+- `POST /api/teams/{id}/transfer`
+- `POST /api/teams/{id}/members/{userId}/remove`
 - `GET /api/reviews`
 - `POST /api/reviews/{id}/approve`
 - `POST /api/reviews/{id}/reject`

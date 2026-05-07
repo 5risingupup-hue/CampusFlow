@@ -146,6 +146,7 @@ CREATE TABLE team_member (
 
 - `join_team`：申请加入队伍
 - `signup_team`：队伍正式报名
+- `signup_personal`：个人活动报名
 
 ```
 DROP TABLE IF EXISTS application_record;
@@ -154,7 +155,7 @@ CREATE TABLE application_record (
     activity_id BIGINT NOT NULL COMMENT '活动ID',
     team_id BIGINT DEFAULT NULL COMMENT '队伍ID，可为空',
     applicant_id BIGINT NOT NULL COMMENT '申请人ID',
-    type VARCHAR(30) NOT NULL COMMENT '申请类型：join_team/signup_team',
+    type VARCHAR(30) NOT NULL COMMENT '申请类型：join_team/signup_team/signup_personal',
     status VARCHAR(30) NOT NULL DEFAULT 'pending' COMMENT '状态：pending/approved/rejected',
     reason VARCHAR(500) DEFAULT NULL COMMENT '申请理由',
     reviewed_by BIGINT DEFAULT NULL COMMENT '审核人ID',

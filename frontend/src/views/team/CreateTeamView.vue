@@ -3,7 +3,7 @@
     <section class="glass-card form-panel">
       <div class="soft-tag">Create Team</div>
       <h1 class="page-title">创建活动队伍</h1>
-      <p class="page-subtitle">创建后系统会自动生成邀请码，并把你设为队长，后续可直接在队伍页处理成员申请和报名提交。</p>
+      <p class="page-subtitle">所有学生都可以创建队伍。谁创建队伍，谁就是队长；其他同学申请加入并通过审核后才会成为队员。</p>
 
       <el-form :model="form" label-position="top">
         <el-form-item label="目标活动">

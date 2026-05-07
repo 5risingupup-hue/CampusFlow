@@ -3,27 +3,30 @@
     <section class="hero-panel glass-card join-hero">
       <div class="hero-head">
         <div>
-          <div class="soft-tag">Team Collaboration</div>
-          <h1 class="page-title">查找并加入合适的队伍</h1>
+          <div class="soft-tag">Team Plaza</div>
+          <h1 class="page-title">队伍广场</h1>
           <p class="page-subtitle">
-            按活动或关键词筛选队伍，统一提交申请理由，队长审核后系统自动同步结果，
-            不再需要线下反复确认名额和状态。
+            所有学生都可以在这里查看正在招募的队伍、当前人数和剩余席位。
+            创建队伍的人就是队长，申请加入并审核通过的人才是队员。
           </p>
         </div>
 
-        <div class="hero-stats">
-          <div class="hero-stat">
-            <span>可见队伍</span>
-            <strong>{{ page.total }}</strong>
+        <div class="hero-side">
+          <div class="hero-stats">
+            <div class="hero-stat">
+              <span>可见队伍</span>
+              <strong>{{ page.total }}</strong>
+            </div>
+            <div class="hero-stat">
+              <span>剩余席位</span>
+              <strong>{{ openSeatCount }}</strong>
+            </div>
+            <div class="hero-stat">
+              <span>我的申请</span>
+              <strong>{{ appliedCount }}</strong>
+            </div>
           </div>
-          <div class="hero-stat">
-            <span>剩余席位</span>
-            <strong>{{ openSeatCount }}</strong>
-          </div>
-          <div class="hero-stat">
-            <span>我的申请</span>
-            <strong>{{ appliedCount }}</strong>
-          </div>
+          <el-button type="primary" round @click="goCreateTeam">创建我的队伍</el-button>
         </div>
       </div>
     </section>
@@ -46,6 +49,7 @@
           </el-form-item>
           <div class="filter-actions">
             <el-button type="primary" round @click="fetchTeams">查询队伍</el-button>
+            <el-button round @click="goCreateTeam">创建队伍</el-button>
             <el-button round @click="resetFilters">重置条件</el-button>
           </div>
         </div>
@@ -83,12 +87,19 @@
 
         <div class="team-actions">
           <el-button round @click="router.push(`/teams/${team.id}`)">查看详情</el-button>
-          <el-button type="primary" round :disabled="team.applied" @click="openApply(team.id)">
-            {{ team.applied ? '审核中' : '申请加入' }}
+          <el-button
+            type="primary"
+            round
+            :disabled="!team.joined && !team.canApply"
+            @click="handleTeamAction(team)"
+          >
+            {{ teamActionText(team) }}
           </el-button>
         </div>
       </article>
-      <el-empty v-if="!page.records.length" description="暂无可加入队伍" />
+      <el-empty v-if="!page.records.length" description="暂无可加入队伍">
+        <el-button type="primary" round @click="goCreateTeam">创建第一个队伍</el-button>
+      </el-empty>
     </section>
 
     <section class="pagination-row" v-if="page.total > query.pageSize">
@@ -154,8 +165,24 @@ const handlePageChange = async (pageNum: number) => {
   await fetchTeams()
 }
 
-const openApply = (teamId: number) => {
-  currentTeamId.value = teamId
+const goCreateTeam = () => {
+  router.push(query.activityId ? `/teams/create?activityId=${query.activityId}` : '/teams/create')
+}
+
+const teamActionText = (team: TeamListItem) => {
+  if (team.joined) return '进入队伍'
+  if (team.applied) return '审核中'
+  if (team.canApply) return '申请加入'
+  return '不可申请'
+}
+
+const handleTeamAction = (team: TeamListItem) => {
+  if (team.joined) {
+    router.push(`/teams/${team.id}`)
+    return
+  }
+  if (!team.canApply) return
+  currentTeamId.value = team.id
   dialogVisible.value = true
 }
 
@@ -187,7 +214,12 @@ onMounted(fetchTeams)
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
-  min-width: 360px;
+}
+
+.hero-side {
+  display: grid;
+  gap: 14px;
+  min-width: 420px;
 }
 
 .hero-stat {
@@ -317,6 +349,7 @@ onMounted(fetchTeams)
     display: grid;
   }
 
+  .hero-side,
   .hero-stats,
   .team-meta-grid {
     min-width: 0;

@@ -32,6 +32,10 @@ export const api = {
     http.post<any, ApiResponse<ActivityDetail>>('/api/activities', payload),
   updateActivity: (id: number, payload: Record<string, unknown>) =>
     http.put<any, ApiResponse<ActivityDetail>>(`/api/activities/${id}`, payload),
+  signupActivity: (id: number, payload?: { reason?: string }) =>
+    http.post(`/api/activities/${id}/signup`, payload || {}),
+  updateActivityStatus: (id: number, payload: { status: string; resultSummary?: string }) =>
+    http.post<any, ApiResponse<ActivityDetail>>(`/api/activities/${id}/status`, payload),
   createTeam: (payload: Record<string, unknown>) =>
     http.post('/api/teams', payload),
   getTeamDetail: (id: number) =>
@@ -42,6 +46,11 @@ export const api = {
     http.post(`/api/teams/${id}/apply`, payload),
   submitTeam: (id: number, payload?: { reason?: string }) =>
     http.post(`/api/teams/${id}/submit`, payload || {}),
+  leaveTeam: (id: number) => http.post(`/api/teams/${id}/leave`),
+  disbandTeam: (id: number) => http.post(`/api/teams/${id}/disband`),
+  removeTeamMember: (id: number, userId: number) => http.post(`/api/teams/${id}/members/${userId}/remove`),
+  transferTeamLeader: (id: number, payload: { newLeaderId: number }) =>
+    http.post(`/api/teams/${id}/transfer`, payload),
   getReviews: (params: Record<string, unknown>) =>
     http.get<any, ApiResponse<PageResult<ReviewItem>>>('/api/reviews', { params }),
   approveReview: (id: number, payload?: { comment?: string }) =>

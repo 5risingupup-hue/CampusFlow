@@ -256,8 +256,8 @@ class CampusFlowStore:
             "submitted",
         )
         self.add_member(submitted["id"], captain["id"], "leader", "approved", now - timedelta(days=1))
-        self.add_member(submitted["id"], student01["id"], "member", "approved", now - timedelta(hours=20))
-        self.add_member(submitted["id"], student02["id"], "member", "approved", now - timedelta(hours=18))
+        self.add_member(submitted["id"], student02["id"], "member", "approved", now - timedelta(hours=20))
+        self.add_member(submitted["id"], student03["id"], "member", "approved", now - timedelta(hours=18))
         self.add_application(
             innovation["id"],
             submitted["id"],
@@ -286,8 +286,7 @@ class CampusFlowStore:
             "我擅长前端原型和交互实现，希望一起参加。",
         )
 
-        role_participants = [student01, captain, organizer, admin]
-        self.seed_showcase_activities(now, organizer, captain, role_participants)
+        self.seed_showcase_activities(now, organizer, captain, student01, student02, student03)
 
         self.create_notice(captain["id"], "报名已提交", "队伍 Campus Masters 已提交创新挑战赛报名，请等待组织者审核。", "review_result")
         self.create_notice(student03["id"], "入队申请已发送", "你对队伍 Idea Spark 的申请已提交，请等待队长审核。", "team_apply")
@@ -321,7 +320,9 @@ class CampusFlowStore:
         now: datetime,
         organizer: dict[str, Any],
         captain: dict[str, Any],
-        participants: list[dict[str, Any]],
+        student01: dict[str, Any],
+        student02: dict[str, Any],
+        student03: dict[str, Any],
     ) -> None:
         activity_rows = [
             ("校园摄影漫步", "文化体验", "樱花大道与艺术楼", False, 2, 2, "signup_open", ["摄影", "校园", "美育"]),
@@ -379,36 +380,26 @@ class CampusFlowStore:
                 resultSummary="本场活动已完成复盘，可查看签到和反馈链路。" if status == "finished" else None,
             )
             if require_team:
-                team = self.add_team(
+                leaders = [student02, student03, captain]
+                leader = leaders[index % len(leaders)]
+                sample_team = self.add_team(
                     activity["id"],
-                    f"{title}四角色体验队",
-                    captain["id"],
-                    "四种角色一起走完整流程",
-                    "学生、队长、组织者、管理员账号都已加入该队伍，便于直接演示参与状态。",
-                    "approved",
+                    f"{title}招募队",
+                    leader["id"],
+                    "欢迎同学申请加入",
+                    "这是一个正在招募成员的示例队伍。创建队伍的同学会自动成为队长，申请加入的同学由队长审核后成为队员。",
+                    "forming",
                 )
-                for member_index, participant in enumerate(participants):
-                    self.add_member(
-                        team["id"],
-                        participant["id"],
-                        "leader" if participant["id"] == captain["id"] else "member",
-                        "approved",
-                        now - timedelta(hours=member_index + 1),
-                    )
-                    self.add_sign_record(
-                        activity["id"],
-                        participant["id"],
-                        "signed" if status == "finished" else "unsigned",
-                        start_time + timedelta(minutes=member_index * 5) if status == "finished" else None,
-                    )
+                self.add_member(sample_team["id"], leader["id"], "leader", "approved", now - timedelta(hours=index))
             else:
-                for participant in participants:
-                    self.add_sign_record(
-                        activity["id"],
-                        participant["id"],
-                        "signed" if status == "finished" else "unsigned",
-                        start_time + timedelta(minutes=10) if status == "finished" else None,
-                    )
+                if status == "finished":
+                    for participant in [student01, student02, student03, captain]:
+                        self.add_sign_record(
+                            activity["id"],
+                            participant["id"],
+                            "signed",
+                            start_time + timedelta(minutes=10),
+                        )
 
     def add_user(self, username: str, nickname: str, email: str, role: str) -> dict[str, Any]:
         user = {
@@ -460,14 +451,15 @@ class CampusFlowStore:
         description: str | None,
         status: str,
     ) -> dict[str, Any]:
+        team_id = self.next_id("teams")
         team = {
-            "id": self.next_id("teams"),
+            "id": team_id,
             "activityId": activity_id,
             "teamName": team_name,
             "leaderId": leader_id,
             "slogan": slogan,
             "description": description,
-            "inviteCode": f"CF-DEMO-{leader_id}",
+            "inviteCode": f"CF-DEMO-{team_id}",
             "status": status,
             "createdAt": _iso(_now()),
         }
@@ -598,6 +590,21 @@ class CampusFlowStore:
     def application_by_id(self, application_id: int | None) -> dict[str, Any] | None:
         return next((record for record in self.applications if record["id"] == application_id), None)
 
+    def signup_accepting(self, activity: dict[str, Any]) -> bool:
+        deadline = _dt(activity.get("signupDeadline"))
+        return activity.get("status") == "signup_open" and (deadline is None or _now() <= deadline)
+
+    def personal_signup_record(self, activity_id: int, user_id: int) -> dict[str, Any] | None:
+        records = [
+            record
+            for record in self.applications
+            if record["activityId"] == activity_id
+            and record["applicantId"] == user_id
+            and record["type"] == "signup_personal"
+        ]
+        records.sort(key=lambda item: item["createdAt"], reverse=True)
+        return records[0] if records else None
+
     def sign_record(self, activity_id: int, user_id: int) -> dict[str, Any] | None:
         return next(
             (record for record in self.sign_records if record["activityId"] == activity_id and record["userId"] == user_id),
@@ -685,8 +692,9 @@ class CampusFlowStore:
         team_count = len([team for team in self.teams if team["activityId"] == activity_id])
         my_team_id = None
         my_application_status = None
-        can_create_team = bool(activity["requireTeam"])
-        can_apply_team = bool(activity["requireTeam"])
+        can_create_team = bool(activity["requireTeam"] and self.signup_accepting(activity))
+        can_apply_team = bool(activity["requireTeam"] and self.signup_accepting(activity))
+        can_signup_personal = bool(not activity["requireTeam"] and self.signup_accepting(activity))
         can_sign_in = False
         can_feedback = False
         if user:
@@ -700,11 +708,19 @@ class CampusFlowStore:
                     can_create_team = False
                     can_apply_team = False
                     break
+            if not activity["requireTeam"]:
+                personal_record = self.personal_signup_record(activity_id, user["id"])
+                if personal_record is not None:
+                    my_application_status = personal_record["status"]
+                    if personal_record["status"] in {"pending", "approved"}:
+                        can_signup_personal = False
             sign_record = self.sign_record(activity_id, user["id"])
-            can_sign_in = sign_record is not None or my_team_id is not None or not activity["requireTeam"]
+            can_sign_in = self.is_eligible(user["id"], activity)
             can_feedback = bool(sign_record and sign_record["status"] == "signed")
             if any(item["activityId"] == activity_id and item["userId"] == user["id"] for item in self.feedbacks):
                 can_feedback = False
+            if sign_record is not None:
+                can_signup_personal = False
         detail = self.activity_card(activity)
         detail.update(
             {
@@ -718,6 +734,7 @@ class CampusFlowStore:
                 "myApplicationStatus": my_application_status,
                 "canCreateTeam": can_create_team,
                 "canApplyTeam": can_apply_team,
+                "canSignupPersonal": can_signup_personal,
                 "canSignIn": can_sign_in,
                 "canFeedback": can_feedback,
                 "resultSummary": activity.get("resultSummary"),
@@ -788,6 +805,59 @@ class CampusFlowStore:
             activity.update(data)
         return self.activity_detail(activity["id"], user)
 
+    def update_activity_status(self, user: dict[str, Any], activity_id: int, payload: dict[str, Any]) -> dict[str, Any]:
+        if user["role"] not in {"organizer", "admin"}:
+            raise BusinessError("仅组织者或管理员可调整活动状态", 403, 403)
+        activity = self.activity_by_id(activity_id)
+        if activity is None:
+            raise BusinessError("活动不存在", 404, 404)
+        if user["role"] != "admin" and activity["organizerId"] != user["id"]:
+            raise BusinessError("仅活动组织者或管理员可调整该活动", 403, 403)
+        status = str(payload.get("status") or "").strip()
+        allowed = {"draft", "published", "signup_open", "signup_closed", "finished", "cancelled"}
+        if status not in allowed:
+            raise BusinessError("活动状态不合法")
+        activity["status"] = status
+        if "resultSummary" in payload:
+            activity["resultSummary"] = payload.get("resultSummary")
+        if status == "cancelled":
+            self.create_batch_notices(
+                self.activity_participant_ids(activity_id, include_pending=True),
+                "活动已取消",
+                f"活动「{activity['title']}」已取消，请关注后续安排。",
+                "activity_reminder",
+            )
+        elif status == "finished":
+            self.create_batch_notices(
+                self.activity_participant_ids(activity_id),
+                "活动已结束",
+                f"活动「{activity['title']}」已结束，已签到参与者可以提交反馈。",
+                "activity_reminder",
+            )
+        return self.activity_detail(activity_id, user)
+
+    def signup_activity(self, user: dict[str, Any], activity_id: int, payload: dict[str, Any]) -> dict[str, Any]:
+        activity = self.activity_by_id(activity_id)
+        if activity is None:
+            raise BusinessError("活动不存在", 404, 404)
+        if activity["requireTeam"]:
+            raise BusinessError("当前活动需要组队，请创建或加入队伍")
+        if not self.signup_accepting(activity):
+            raise BusinessError("当前活动不在报名开放时间内")
+        record = self.personal_signup_record(activity_id, user["id"])
+        if record is not None and record["status"] in {"pending", "approved"}:
+            raise BusinessError("你已提交过该活动报名", 409, 409)
+        if self.sign_record(activity_id, user["id"]) is not None:
+            raise BusinessError("你已获得该活动参与资格", 409, 409)
+        record = self.add_application(activity_id, None, user["id"], "signup_personal", "pending", payload.get("reason"))
+        self.create_notice(
+            activity["organizerId"],
+            "新的个人报名待审核",
+            f"{user['nickname']} 已提交活动「{activity['title']}」的个人报名，请及时审核。",
+            "review_result",
+        )
+        return {"applicationId": record["id"], "status": record["status"]}
+
     def approved_member_count(self, team_id: int) -> int:
         return len([item for item in self.team_members if item["teamId"] == team_id and item["joinStatus"] == "approved"])
 
@@ -806,8 +876,8 @@ class CampusFlowStore:
             raise BusinessError("活动不存在", 404, 404)
         if not activity["requireTeam"]:
             raise BusinessError("当前活动不允许组队")
-        if _now() > (_dt(activity["signupDeadline"]) or _now()):
-            raise BusinessError("活动报名已截止")
+        if not self.signup_accepting(activity):
+            raise BusinessError("当前活动不在报名开放时间内")
         self.assert_not_in_activity_team(user["id"], activity["id"])
         team_name = str(payload.get("teamName") or "").strip()
         if not team_name:
@@ -903,6 +973,8 @@ class CampusFlowStore:
                 continue
             leader = self.user_by_id(team["leaderId"])
             applied = False
+            joined = False
+            joined_other_activity_team = False
             if user:
                 applied = any(
                     record["teamId"] == team["id"]
@@ -911,6 +983,17 @@ class CampusFlowStore:
                     and record["status"] == "pending"
                     for record in self.applications
                 )
+                for membership in self.team_members:
+                    if membership["userId"] != user["id"] or membership["joinStatus"] not in {"pending", "approved"}:
+                        continue
+                    membership_team = self.team_by_id(membership["teamId"])
+                    if membership_team is None or membership_team["activityId"] != team["activityId"]:
+                        continue
+                    if membership_team["id"] == team["id"]:
+                        joined = True
+                    else:
+                        joined_other_activity_team = True
+            current_size = self.approved_member_count(team["id"])
             records.append(
                 {
                     "id": team["id"],
@@ -921,10 +1004,18 @@ class CampusFlowStore:
                     "description": team.get("description"),
                     "leaderId": team["leaderId"],
                     "leaderName": leader["nickname"] if leader else "未知队长",
-                    "currentSize": self.approved_member_count(team["id"]),
+                    "currentSize": current_size,
                     "maxTeamSize": activity["maxTeamSize"],
                     "status": team["status"],
                     "applied": applied,
+                    "joined": joined,
+                    "canApply": bool(
+                        user
+                        and not applied
+                        and not joined
+                        and not joined_other_activity_team
+                        and current_size < activity["maxTeamSize"]
+                    ),
                 }
             )
         records.sort(key=lambda item: item["id"], reverse=True)
@@ -939,8 +1030,8 @@ class CampusFlowStore:
             raise BusinessError("活动不存在", 404, 404)
         if team["status"] != "forming":
             raise BusinessError("当前队伍不可申请加入")
-        if _now() > (_dt(activity["signupDeadline"]) or _now()):
-            raise BusinessError("活动报名已截止")
+        if not self.signup_accepting(activity):
+            raise BusinessError("当前活动不在报名开放时间内")
         if self.approved_member_count(team_id) >= activity["maxTeamSize"]:
             raise BusinessError("队伍人数已满")
         if user["id"] == team["leaderId"]:
@@ -974,8 +1065,8 @@ class CampusFlowStore:
         activity = self.activity_by_id(team["activityId"])
         if activity is None:
             raise BusinessError("活动不存在", 404, 404)
-        if _now() > (_dt(activity["signupDeadline"]) or _now()):
-            raise BusinessError("活动报名已截止")
+        if not self.signup_accepting(activity):
+            raise BusinessError("当前活动不在报名开放时间内")
         count = self.approved_member_count(team_id)
         if count < activity["minTeamSize"] or count > activity["maxTeamSize"]:
             raise BusinessError("队伍人数未满足活动要求")
@@ -990,6 +1081,141 @@ class CampusFlowStore:
             "review_result",
         )
 
+    def assert_team_mutable(self, team: dict[str, Any]) -> None:
+        if team["status"] in {"submitted", "approved"}:
+            raise BusinessError("队伍已提交或已通过报名，不能再调整成员")
+        if team["status"] == "disbanded":
+            raise BusinessError("队伍已解散")
+
+    def active_team_member(self, team_id: int, user_id: int) -> dict[str, Any] | None:
+        return next(
+            (
+                item
+                for item in self.team_members
+                if item["teamId"] == team_id
+                and item["userId"] == user_id
+                and item["joinStatus"] in {"pending", "approved"}
+            ),
+            None,
+        )
+
+    def leave_team(self, user: dict[str, Any], team_id: int) -> None:
+        team = self.team_by_id(team_id)
+        if team is None:
+            raise BusinessError("队伍不存在", 404, 404)
+        self.assert_team_mutable(team)
+        member = self.active_team_member(team_id, user["id"])
+        if member is None:
+            raise BusinessError("你不在该队伍中", 404, 404)
+        if team["leaderId"] == user["id"]:
+            approved_members = [
+                item for item in self.team_members if item["teamId"] == team_id and item["joinStatus"] == "approved"
+            ]
+            if len(approved_members) > 1:
+                raise BusinessError("队长需先转让队长或解散队伍")
+            self.disband_team(user, team_id)
+            return
+        member["joinStatus"] = "left"
+        member["joinedAt"] = None
+        for record in self.applications:
+            if record["teamId"] == team_id and record["applicantId"] == user["id"] and record["status"] == "pending":
+                self.update_application(record, "rejected", user, "成员主动退出队伍")
+        self.create_notice(
+            team["leaderId"],
+            "成员退出队伍",
+            f"{user['nickname']} 已退出队伍「{team['teamName']}」。",
+            "team_apply",
+        )
+
+    def remove_team_member(self, user: dict[str, Any], team_id: int, member_user_id: int) -> None:
+        team = self.team_by_id(team_id)
+        if team is None:
+            raise BusinessError("队伍不存在", 404, 404)
+        self.assert_team_mutable(team)
+        if team["leaderId"] != user["id"]:
+            raise BusinessError("只有队长可以移除成员", 403, 403)
+        if member_user_id == team["leaderId"]:
+            raise BusinessError("不能移除队长本人")
+        member = self.active_team_member(team_id, member_user_id)
+        if member is None:
+            raise BusinessError("成员不存在或已不在队伍中", 404, 404)
+        member["joinStatus"] = "removed"
+        member["joinedAt"] = None
+        for record in self.applications:
+            if record["teamId"] == team_id and record["applicantId"] == member_user_id and record["status"] == "pending":
+                self.update_application(record, "rejected", user, "队长移除成员")
+        self.create_notice(
+            member_user_id,
+            "你已被移出队伍",
+            f"队长已将你移出队伍「{team['teamName']}」。",
+            "team_apply",
+        )
+
+    def transfer_leader(self, user: dict[str, Any], team_id: int, payload: dict[str, Any]) -> None:
+        team = self.team_by_id(team_id)
+        if team is None:
+            raise BusinessError("队伍不存在", 404, 404)
+        self.assert_team_mutable(team)
+        if team["leaderId"] != user["id"]:
+            raise BusinessError("只有队长可以转让队长", 403, 403)
+        new_leader_id = _int(payload.get("newLeaderId"))
+        if new_leader_id is None or new_leader_id == user["id"]:
+            raise BusinessError("请选择新的队长")
+        new_leader_member = next(
+            (
+                item
+                for item in self.team_members
+                if item["teamId"] == team_id
+                and item["userId"] == new_leader_id
+                and item["joinStatus"] == "approved"
+            ),
+            None,
+        )
+        if new_leader_member is None:
+            raise BusinessError("新队长必须是已通过的队伍成员")
+        old_leader_member = self.active_team_member(team_id, user["id"])
+        if old_leader_member:
+            old_leader_member["memberRole"] = "member"
+        new_leader_member["memberRole"] = "leader"
+        team["leaderId"] = new_leader_id
+        new_leader = self.user_by_id(new_leader_id)
+        self.create_notice(
+            new_leader_id,
+            "你已成为队长",
+            f"你已成为队伍「{team['teamName']}」的新队长，请继续维护队伍报名。",
+            "team_apply",
+        )
+        self.create_notice(
+            user["id"],
+            "队长已转让",
+            f"队伍「{team['teamName']}」已转让给 {new_leader['nickname'] if new_leader else '新队长'}。",
+            "team_apply",
+        )
+
+    def disband_team(self, user: dict[str, Any], team_id: int) -> None:
+        team = self.team_by_id(team_id)
+        if team is None:
+            raise BusinessError("队伍不存在", 404, 404)
+        self.assert_team_mutable(team)
+        if user["role"] != "admin" and team["leaderId"] != user["id"]:
+            raise BusinessError("只有队长或管理员可以解散队伍", 403, 403)
+        team["status"] = "disbanded"
+        affected_user_ids = []
+        for member in self.team_members:
+            if member["teamId"] == team_id and member["joinStatus"] in {"pending", "approved"}:
+                affected_user_ids.append(member["userId"])
+                member["joinStatus"] = "disbanded"
+                member["joinedAt"] = None
+        for record in self.applications:
+            if record["teamId"] == team_id and record["status"] == "pending":
+                self.update_application(record, "rejected", user, "队伍已解散")
+        self.create_batch_notices(
+            affected_user_ids,
+            "队伍已解散",
+            f"队伍「{team['teamName']}」已解散，相关报名或申请已终止。",
+            "team_apply",
+        )
+
     def review_item(self, record: dict[str, Any]) -> dict[str, Any]:
         activity = self.activity_by_id(record["activityId"])
         team = self.team_by_id(record.get("teamId"))
@@ -1001,11 +1227,11 @@ class CampusFlowStore:
             "activityId": record["activityId"],
             "activityTitle": activity["title"] if activity else "未知活动",
             "teamId": record.get("teamId"),
-            "teamName": team["teamName"] if team else "-",
+            "teamName": team["teamName"] if team else "个人报名",
             "applicantId": record["applicantId"],
             "applicantName": applicant["nickname"] if applicant else "未知用户",
             "reason": record.get("reason"),
-            "memberCount": self.approved_member_count(team["id"]) if team else 0,
+            "memberCount": self.approved_member_count(team["id"]) if team else 1,
             "reviewComment": record.get("reviewComment"),
             "createdAt": record["createdAt"],
         }
@@ -1019,7 +1245,7 @@ class CampusFlowStore:
         keyword = str(params.get("keyword") or "").strip().lower()
         records = []
         for record in self.applications:
-            if record["activityId"] not in activity_ids or record["type"] != "signup_team":
+            if record["activityId"] not in activity_ids or record["type"] not in {"signup_team", "signup_personal"}:
                 continue
             if status and record["status"] != status:
                 continue
@@ -1037,8 +1263,12 @@ class CampusFlowStore:
             raise BusinessError("当前记录已审核，无需重复操作")
         if record["type"] == "join_team":
             self.review_join_team(user, record, comment, approve)
-        else:
+        elif record["type"] == "signup_team":
             self.review_signup_team(user, record, comment, approve)
+        elif record["type"] == "signup_personal":
+            self.review_signup_personal(user, record, comment, approve)
+        else:
+            raise BusinessError("不支持的审核类型")
 
     def update_application(self, record: dict[str, Any], status: str, user: dict[str, Any], comment: str | None) -> None:
         record["status"] = status
@@ -1114,6 +1344,35 @@ class CampusFlowStore:
                 "review_result",
             )
 
+    def review_signup_personal(self, user: dict[str, Any], record: dict[str, Any], comment: str | None, approve: bool) -> None:
+        activity = self.activity_by_id(record.get("activityId"))
+        if activity is None:
+            raise BusinessError("活动不存在", 404, 404)
+        if user["role"] != "admin" and activity["organizerId"] != user["id"]:
+            raise BusinessError("只有活动组织者或管理员可以审核报名", 403, 403)
+        applicant = self.user_by_id(record["applicantId"])
+        if applicant is None:
+            raise BusinessError("申请人不存在", 404, 404)
+        if approve:
+            self.update_application(record, "approved", user, comment)
+            if self.sign_record(activity["id"], applicant["id"]) is None:
+                self.add_sign_record(activity["id"], applicant["id"], "unsigned")
+            self.create_notice(
+                applicant["id"],
+                "活动报名审核通过",
+                f"你已通过活动「{activity['title']}」报名审核，请按时参加。",
+                "review_result",
+            )
+        else:
+            self.update_application(record, "rejected", user, comment)
+            reason = comment or "未填写具体原因"
+            self.create_notice(
+                applicant["id"],
+                "活动报名未通过",
+                f"你未通过活动「{activity['title']}」报名审核，原因：{reason}",
+                "review_result",
+            )
+
     def page_notices(self, user: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
         is_read = _bool(params.get("isRead"), None)
         notice_type = str(params.get("type") or "").strip()
@@ -1169,6 +1428,33 @@ class CampusFlowStore:
     def create_batch_notices(self, user_ids: list[int], title: str, content: str, notice_type: str) -> None:
         for user_id in sorted(set(user_ids)):
             self.create_notice(user_id, title, content, notice_type)
+
+    def activity_participant_ids(self, activity_id: int, include_pending: bool = False) -> list[int]:
+        statuses = {"approved", "signed"}
+        if include_pending:
+            statuses.add("pending")
+        user_ids = {
+            record["userId"]
+            for record in self.sign_records
+            if record["activityId"] == activity_id
+        }
+        for record in self.applications:
+            if record["activityId"] != activity_id or record["status"] not in statuses:
+                continue
+            if record["type"] == "signup_personal":
+                user_ids.add(record["applicantId"])
+            elif include_pending and record.get("teamId") is not None:
+                for member in self.team_members:
+                    if member["teamId"] == record["teamId"] and member["joinStatus"] in {"pending", "approved"}:
+                        user_ids.add(member["userId"])
+        for team in self.teams:
+            if team["activityId"] != activity_id:
+                continue
+            if team["status"] == "approved" or (include_pending and team["status"] in {"forming", "submitted"}):
+                for member in self.team_members:
+                    if member["teamId"] == team["id"] and member["joinStatus"] in {"pending", "approved"}:
+                        user_ids.add(member["userId"])
+        return sorted(user_ids)
 
     def overview(self, user: dict[str, Any]) -> dict[str, Any]:
         role = user["role"]
@@ -1227,7 +1513,10 @@ class CampusFlowStore:
 
     def is_eligible(self, user_id: int, activity: dict[str, Any]) -> bool:
         if not activity["requireTeam"]:
-            return True
+            if self.sign_record(activity["id"], user_id) is not None:
+                return True
+            record = self.personal_signup_record(activity["id"], user_id)
+            return bool(record and record["status"] == "approved")
         for member in self.team_members:
             if member["userId"] != user_id or member["joinStatus"] != "approved":
                 continue
@@ -1497,6 +1786,14 @@ class CampusFlowHandler(BaseHTTPRequestHandler):
         if activity_match and method == "PUT":
             return "更新成功", store.save_activity(self.current_user(required=True), body, int(activity_match.group(1)))
 
+        activity_signup_match = re.fullmatch(r"/api/activities/(\d+)/signup", path)
+        if activity_signup_match and method == "POST":
+            return "报名已提交", store.signup_activity(self.current_user(required=True), int(activity_signup_match.group(1)), body)
+
+        activity_status_match = re.fullmatch(r"/api/activities/(\d+)/status", path)
+        if activity_status_match and method == "POST":
+            return "状态已更新", store.update_activity_status(self.current_user(required=True), int(activity_status_match.group(1)), body)
+
         if method == "POST" and path == "/api/teams":
             return "创建成功", store.create_team(self.current_user(required=True), body)
 
@@ -1516,6 +1813,30 @@ class CampusFlowHandler(BaseHTTPRequestHandler):
         if team_submit_match and method == "POST":
             store.submit_team(self.current_user(required=True), int(team_submit_match.group(1)), body)
             return "报名已提交", None
+
+        team_leave_match = re.fullmatch(r"/api/teams/(\d+)/leave", path)
+        if team_leave_match and method == "POST":
+            store.leave_team(self.current_user(required=True), int(team_leave_match.group(1)))
+            return "已退出队伍", None
+
+        team_disband_match = re.fullmatch(r"/api/teams/(\d+)/disband", path)
+        if team_disband_match and method == "POST":
+            store.disband_team(self.current_user(required=True), int(team_disband_match.group(1)))
+            return "队伍已解散", None
+
+        team_transfer_match = re.fullmatch(r"/api/teams/(\d+)/transfer", path)
+        if team_transfer_match and method == "POST":
+            store.transfer_leader(self.current_user(required=True), int(team_transfer_match.group(1)), body)
+            return "队长已转让", None
+
+        team_remove_match = re.fullmatch(r"/api/teams/(\d+)/members/(\d+)/remove", path)
+        if team_remove_match and method == "POST":
+            store.remove_team_member(
+                self.current_user(required=True),
+                int(team_remove_match.group(1)),
+                int(team_remove_match.group(2)),
+            )
+            return "成员已移除", None
 
         if method == "GET" and path == "/api/reviews":
             return "查询成功", store.page_reviews(self.current_user(required=True), params)

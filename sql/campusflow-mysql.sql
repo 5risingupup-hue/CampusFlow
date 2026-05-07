@@ -101,7 +101,7 @@ CREATE TABLE application_record (
     activity_id BIGINT NOT NULL COMMENT '活动ID',
     team_id BIGINT DEFAULT NULL COMMENT '队伍ID',
     applicant_id BIGINT NOT NULL COMMENT '申请人ID',
-    type VARCHAR(30) NOT NULL COMMENT '申请类型',
+    type VARCHAR(30) NOT NULL COMMENT '申请类型：join_team/signup_team/signup_personal',
     status VARCHAR(30) NOT NULL DEFAULT 'pending' COMMENT '审核状态',
     reason VARCHAR(500) DEFAULT NULL COMMENT '申请理由',
     reviewed_by BIGINT DEFAULT NULL COMMENT '审核人ID',

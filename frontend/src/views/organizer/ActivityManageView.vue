@@ -31,6 +31,21 @@
         </div>
         <div class="card-actions">
           <el-button round @click="editActivity(item.id)">编辑</el-button>
+          <el-dropdown @command="changeStatusCommand">
+            <el-button round>变更状态</el-button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item
+                  v-for="option in statusOptions"
+                  :key="option.value"
+                  :command="{ id: item.id, status: option.value }"
+                  :disabled="option.value === item.status"
+                >
+                  {{ option.label }}
+                </el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
           <el-button type="primary" round plain @click="router.push(`/activities/${item.id}`)">查看详情</el-button>
         </div>
       </article>
@@ -79,7 +94,7 @@
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { api } from '../../api'
 import type { ActivityCard, ActivityDetail } from '../../types'
 import { formatDateTime, statusLabelMap, statusTagTypeMap } from '../../utils/format'
@@ -107,6 +122,14 @@ const form = reactive<any>({
   signEndTime: '',
   resultSummary: ''
 })
+const statusOptions = [
+  { label: '草稿', value: 'draft' },
+  { label: '已发布', value: 'published' },
+  { label: '报名中', value: 'signup_open' },
+  { label: '报名截止', value: 'signup_closed' },
+  { label: '已结束', value: 'finished' },
+  { label: '已取消', value: 'cancelled' }
+]
 
 const fetchActivities = async () => {
   const response = await api.getMyActivities()
@@ -163,6 +186,38 @@ const submitForm = async () => {
   } catch (error) {
     ElMessage.error((error as Error).message)
   }
+}
+
+const changeStatus = async (id: number, status: string) => {
+  try {
+    let resultSummary: string | undefined
+    if (status === 'finished') {
+      const { value } = await ElMessageBox.prompt('可填写活动结果总结，结束后参与者可进入反馈链路。', '结束活动', {
+        confirmButtonText: '确认结束',
+        cancelButtonText: '取消',
+        inputPlaceholder: '例如：活动顺利完成，后续开放反馈收集'
+      })
+      resultSummary = value
+    } else {
+      await ElMessageBox.confirm(`确认将活动状态变更为「${statusLabelMap[status] || status}」吗？`, '变更活动状态', {
+        confirmButtonText: '确认',
+        cancelButtonText: '取消',
+        type: 'warning'
+      })
+    }
+    await api.updateActivityStatus(id, { status, resultSummary })
+    ElMessage.success('活动状态已更新')
+    await fetchActivities()
+  } catch (error) {
+    if ((error as Error).message) {
+      ElMessage.error((error as Error).message)
+    }
+  }
+}
+
+const changeStatusCommand = (command: unknown) => {
+  const payload = command as { id: number; status: string }
+  return changeStatus(payload.id, payload.status)
 }
 
 onMounted(fetchActivities)

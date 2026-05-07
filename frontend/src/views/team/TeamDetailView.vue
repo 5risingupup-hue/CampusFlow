@@ -42,11 +42,20 @@
         <h2 class="section-title">成员列表</h2>
         <div class="member-list">
           <div v-for="member in teamStore.currentTeam.members" :key="member.userId" class="member-item">
-            <div>
+            <div class="member-copy">
               <strong>{{ member.nickname }}</strong>
               <p>{{ member.memberRole }} · {{ member.joinStatus }}</p>
             </div>
-            <span>{{ member.joinedAt ? formatDateTime(member.joinedAt) : '待加入' }}</span>
+            <div class="member-side">
+              <span>{{ member.joinedAt ? formatDateTime(member.joinedAt) : '待加入' }}</span>
+              <div
+                v-if="teamStore.currentTeam.canManage && canMutateTeam && member.userId !== teamStore.currentTeam.leaderId"
+                class="member-actions"
+              >
+                <el-button size="small" @click="transferLeader(member.userId)">转为队长</el-button>
+                <el-button size="small" type="danger" plain @click="removeMember(member.userId)">移除</el-button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -80,12 +89,30 @@
         <div class="action-list">
           <el-button round @click="copyInviteCode">复制邀请码</el-button>
           <el-button
-            v-if="teamStore.currentTeam.canManage"
+            v-if="teamStore.currentTeam.canManage && canMutateTeam"
             type="primary"
             round
             @click="submitSignup"
           >
             提交队伍报名
+          </el-button>
+          <el-button
+            v-if="canLeaveTeam"
+            type="danger"
+            plain
+            round
+            @click="leaveTeam"
+          >
+            退出队伍
+          </el-button>
+          <el-button
+            v-if="teamStore.currentTeam.canManage && canMutateTeam"
+            type="danger"
+            plain
+            round
+            @click="disbandTeam"
+          >
+            解散队伍
           </el-button>
           <el-button round @click="router.push(`/activities/${teamStore.currentTeam.activityId}`)">返回活动详情</el-button>
         </div>
@@ -113,16 +140,30 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { api } from '../../api'
 import { useTeamStore } from '../../stores/team'
+import { useUserStore } from '../../stores/user'
 import { formatDateTime, statusLabelMap, statusTagTypeMap } from '../../utils/format'
 
 const route = useRoute()
 const router = useRouter()
 const teamStore = useTeamStore()
+const userStore = useUserStore()
+
+const canMutateTeam = computed(() =>
+  Boolean(teamStore.currentTeam && !['submitted', 'approved', 'disbanded'].includes(teamStore.currentTeam.status))
+)
+const canLeaveTeam = computed(() =>
+  Boolean(
+    teamStore.currentTeam &&
+    canMutateTeam.value &&
+    !teamStore.currentTeam.canManage &&
+    teamStore.currentTeam.members.some((member) => member.userId === userStore.profile?.id)
+  )
+)
 
 const loadTeam = async () => {
   await teamStore.fetchTeam(Number(route.params.id))
@@ -160,6 +201,53 @@ const submitSignup = async () => {
   await api.submitTeam(Number(route.params.id), { reason: value })
   ElMessage.success('报名已提交')
   await loadTeam()
+}
+
+const removeMember = async (userId: number) => {
+  await ElMessageBox.confirm('确认将该成员移出队伍吗？', '移除成员', {
+    confirmButtonText: '移除',
+    cancelButtonText: '取消',
+    type: 'warning'
+  })
+  await api.removeTeamMember(Number(route.params.id), userId)
+  ElMessage.success('成员已移除')
+  await loadTeam()
+}
+
+const transferLeader = async (newLeaderId: number) => {
+  await ElMessageBox.confirm('确认将队长转让给该成员吗？', '转让队长', {
+    confirmButtonText: '转让',
+    cancelButtonText: '取消',
+    type: 'warning'
+  })
+  await api.transferTeamLeader(Number(route.params.id), { newLeaderId })
+  ElMessage.success('队长已转让')
+  await loadTeam()
+}
+
+const leaveTeam = async () => {
+  if (!teamStore.currentTeam) return
+  await ElMessageBox.confirm('确认退出当前队伍吗？', '退出队伍', {
+    confirmButtonText: '退出',
+    cancelButtonText: '取消',
+    type: 'warning'
+  })
+  await api.leaveTeam(Number(route.params.id))
+  ElMessage.success('已退出队伍')
+  router.push(`/activities/${teamStore.currentTeam.activityId}`)
+}
+
+const disbandTeam = async () => {
+  if (!teamStore.currentTeam) return
+  await ElMessageBox.confirm('解散后成员和待审核申请都会终止，确认继续吗？', '解散队伍', {
+    confirmButtonText: '解散',
+    cancelButtonText: '取消',
+    type: 'warning'
+  })
+  const activityId = teamStore.currentTeam.activityId
+  await api.disbandTeam(Number(route.params.id))
+  ElMessage.success('队伍已解散')
+  router.push(`/activities/${activityId}`)
 }
 
 onMounted(loadTeam)
@@ -262,6 +350,24 @@ onMounted(loadTeam)
   line-height: 1.75;
 }
 
+.member-copy {
+  flex: 1;
+}
+
+.member-side {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-end;
+}
+
+.member-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .application-copy {
   flex: 1;
 }
@@ -286,6 +392,10 @@ onMounted(loadTeam)
   .member-item,
   .application-item {
     flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .member-side {
     align-items: flex-start;
   }
 }

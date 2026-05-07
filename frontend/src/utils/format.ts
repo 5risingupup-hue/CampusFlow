@@ -13,6 +13,9 @@ export const statusTagTypeMap: Record<string, 'primary' | 'success' | 'warning' 
   approved: 'success',
   pending: 'warning',
   rejected: 'danger',
+  disbanded: 'danger',
+  left: 'info',
+  removed: 'danger',
   finished: 'info',
   signed: 'success',
   unsigned: 'info'
@@ -29,11 +32,15 @@ export const statusLabelMap: Record<string, string> = {
   submitted: '审核中',
   approved: '已通过',
   rejected: '已拒绝',
+  disbanded: '已解散',
+  left: '已退出',
+  removed: '已移除',
   pending: '待处理',
   signed: '已签到',
   unsigned: '未签到',
   join_team: '入队申请',
-  signup_team: '报名申请'
+  signup_team: '队伍报名',
+  signup_personal: '个人报名'
 }
 
 export const roleLabelMap: Record<string, string> = {

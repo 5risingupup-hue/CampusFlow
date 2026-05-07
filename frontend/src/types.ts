@@ -48,6 +48,7 @@ export interface ActivityDetail extends ActivityCard {
   myApplicationStatus?: string
   canCreateTeam: boolean
   canApplyTeam: boolean
+  canSignupPersonal: boolean
   canSignIn: boolean
   canFeedback: boolean
   resultSummary?: string
@@ -105,6 +106,8 @@ export interface TeamListItem {
   maxTeamSize: number
   status: string
   applied: boolean
+  joined: boolean
+  canApply: boolean
 }
 
 export interface ReviewItem {
@@ -113,7 +116,7 @@ export interface ReviewItem {
   status: string
   activityId: number
   activityTitle: string
-  teamId: number
+  teamId?: number
   teamName: string
   applicantId: number
   applicantName: string

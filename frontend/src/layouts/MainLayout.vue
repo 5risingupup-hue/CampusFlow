@@ -10,7 +10,7 @@
           <nav class="nav-links" aria-label="主导航">
             <RouterLink to="/activities">首页</RouterLink>
             <RouterLink v-if="userStore.isLoggedIn" to="/dashboard">工作台</RouterLink>
-            <RouterLink v-if="userStore.isLoggedIn" to="/teams/join">队伍协作</RouterLink>
+            <RouterLink v-if="userStore.isLoggedIn" to="/teams/join">队伍广场</RouterLink>
             <RouterLink v-if="isOrganizer" to="/organizer/activities">活动管理</RouterLink>
             <RouterLink v-if="isOrganizer" to="/organizer/reviews">审核中心</RouterLink>
             <RouterLink v-if="isAdmin" to="/admin/announcements">公告治理</RouterLink>

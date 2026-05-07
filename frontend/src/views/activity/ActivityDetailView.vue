@@ -133,7 +133,7 @@
 
           <div class="action-status">
             <span class="status-dot">{{ participationLabel }}</span>
-            <span>{{ detail.myTeamId ? `当前已加入队伍 #${detail.myTeamId}` : '尚未加入本活动队伍' }}</span>
+            <span>{{ actionStatusText }}</span>
           </div>
 
           <div class="list-stack action-buttons">
@@ -153,11 +153,20 @@
               查找队伍并申请加入
             </el-button>
             <el-button
+              v-if="userStore.isLoggedIn && !detail.requireTeam && detail.canSignupPersonal"
+              type="primary"
+              round
+              @click="handlePersonalSignup"
+            >
+              提交个人报名
+            </el-button>
+            <el-button
               v-if="userStore.isLoggedIn && detail.myTeamId"
+              type="primary"
               round
               @click="router.push(`/teams/${detail.myTeamId}`)"
             >
-              查看我的队伍空间
+              进入我的队伍提交报名
             </el-button>
             <el-button
               v-if="userStore.isLoggedIn && detail.canSignIn"
@@ -206,6 +215,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { api } from '../../api'
 import { useUserStore } from '../../stores/user'
 import type { ActivityDetail, FeedbackSummary } from '../../types'
@@ -223,13 +233,24 @@ const averageScore = computed(() => (feedback.value?.averageScore ?? 0).toFixed(
 const participationLabel = computed(() => {
   if (!userStore.isLoggedIn) return '待登录'
   if (detail.value?.myTeamId) return '已在队伍中'
+  if (detail.value?.myApplicationStatus === 'pending') return '报名待审核'
+  if (detail.value?.myApplicationStatus === 'approved') return '报名已通过'
+  if (detail.value?.myApplicationStatus === 'rejected') return '报名未通过'
   if (detail.value?.canFeedback) return '可反馈'
   if (detail.value?.canSignIn) return '可签到'
-  if (detail.value?.canApplyTeam || detail.value?.canCreateTeam) return '可参与'
+  if (detail.value?.canApplyTeam || detail.value?.canCreateTeam || detail.value?.canSignupPersonal) return '可参与'
   return '待审核或已结束'
 })
+const actionStatusText = computed(() => {
+  if (!detail.value) return ''
+  if (detail.value.myTeamId) return `当前已加入队伍 #${detail.value.myTeamId}`
+  if (!detail.value.requireTeam && detail.value.myApplicationStatus) {
+    return `个人报名状态：${statusLabelMap[detail.value.myApplicationStatus] || detail.value.myApplicationStatus}`
+  }
+  return detail.value.requireTeam ? '尚未加入本活动队伍' : '尚未提交个人报名'
+})
 
-onMounted(async () => {
+const loadDetail = async () => {
   const id = Number(route.params.id)
   const [detailResponse, feedbackResponse] = await Promise.all([
     api.getActivityDetail(id),
@@ -237,7 +258,21 @@ onMounted(async () => {
   ])
   detail.value = detailResponse.data
   feedback.value = feedbackResponse.data
-})
+}
+
+const handlePersonalSignup = async () => {
+  if (!detail.value) return
+  const { value } = await ElMessageBox.prompt('可填写报名说明，帮助组织者快速审核。', '提交个人报名', {
+    confirmButtonText: '提交',
+    cancelButtonText: '取消',
+    inputPlaceholder: '例如：我已确认时间安排，可以准时参加'
+  })
+  await api.signupActivity(detail.value.id, { reason: value })
+  ElMessage.success('个人报名已提交，等待组织者审核')
+  await loadDetail()
+}
+
+onMounted(loadDetail)
 </script>
 
 <style scoped>

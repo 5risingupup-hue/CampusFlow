@@ -62,9 +62,14 @@
 
     <section class="glass-card table-panel">
       <el-table :data="page.records" stripe>
-        <el-table-column prop="teamName" label="队伍" min-width="180" />
+        <el-table-column label="类型" width="120">
+          <template #default="{ row }">
+            {{ statusLabelMap[row.type] || row.type }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="teamName" label="报名对象" min-width="180" />
         <el-table-column prop="activityTitle" label="活动" min-width="180" />
-        <el-table-column prop="memberCount" label="成员数" width="100" />
+        <el-table-column prop="memberCount" label="人数" width="100" />
         <el-table-column label="提交时间" min-width="160">
           <template #default="{ row }">
             {{ formatDateTime(row.createdAt) }}
@@ -100,8 +105,12 @@
     <el-drawer v-model="drawerVisible" title="报名详情" size="460px">
       <div v-if="currentReview" class="list-stack">
         <div class="review-block">
-          <strong>队伍</strong>
+          <strong>报名对象</strong>
           <p>{{ currentReview.teamName }}</p>
+        </div>
+        <div class="review-block">
+          <strong>报名类型</strong>
+          <p>{{ statusLabelMap[currentReview.type] || currentReview.type }}</p>
         </div>
         <div class="review-block">
           <strong>活动</strong>
